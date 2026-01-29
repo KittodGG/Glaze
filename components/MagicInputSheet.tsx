@@ -162,7 +162,7 @@ export function MagicInputSheet() {
                             // Create transaction object
                             const transaction = {
                                 id: `temp_${Date.now()}`, // Firebase will replace with real ID
-                                title: result.item_name,
+                                title: result.item,
                                 amount: result.amount,
                                 category: result.category,
                                 source_wallet: result.source_wallet,

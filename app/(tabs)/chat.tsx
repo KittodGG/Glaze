@@ -1,3 +1,4 @@
+import { PremiumBackground } from '@/components/ui/PremiumBackground';
 import { Colors } from '@/constants/Colors';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { chatWithAI } from '@/services/gemini';
@@ -157,7 +158,7 @@ Available Data:
     );
 
     return (
-        <View style={[styles.container, { backgroundColor: colors.background }]}>
+        <PremiumBackground>
             {/* Gradient Header */}
             <LinearGradient
                 colors={colorScheme === 'dark'
@@ -174,15 +175,12 @@ Available Data:
                             <Ionicons name="sparkles" size={20} color="#fff" />
                         </LinearGradient>
                         <View>
-                            <Text style={[styles.headerTitle, { color: colors.text }]}>Glaze AI</Text>
-                            <Text style={[styles.headerSubtitle, { color: colors.icon }]}>
+                            <Text style={[styles.headerTitle, { color: '#fff' }]}>Glaze AI</Text>
+                            <Text style={[styles.headerSubtitle, { color: 'rgba(255,255,255,0.7)' }]}>
                                 {isTyping ? 'Typing...' : 'Online'}
                             </Text>
                         </View>
                     </View>
-                    <Pressable style={styles.menuButton}>
-                        <Ionicons name="ellipsis-vertical" size={20} color={colors.icon} />
-                    </Pressable>
                 </View>
             </LinearGradient>
 
@@ -225,7 +223,7 @@ Available Data:
                 <BlurView
                     intensity={80}
                     tint={colorScheme}
-                    style={[styles.inputWrapper, { paddingBottom: Math.max(bottom, 20) + 70 }]}
+                    style={[styles.inputWrapper, { paddingBottom: Math.max(bottom, 20) + 100 }]}
                 >
                     <View style={[styles.inputContainer, { backgroundColor: colors.card }]}>
                         <TextInput
@@ -255,14 +253,11 @@ Available Data:
                     </View>
                 </BlurView>
             </KeyboardAvoidingView>
-        </View>
+        </PremiumBackground>
     );
 }
 
 const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-    },
     headerGradient: {
         paddingBottom: 15,
     },
@@ -292,9 +287,6 @@ const styles = StyleSheet.create({
     headerSubtitle: {
         fontFamily: 'PlusJakartaSans_400Regular',
         fontSize: 12,
-    },
-    menuButton: {
-        padding: 8,
     },
     messagesContainer: {
         padding: 20,

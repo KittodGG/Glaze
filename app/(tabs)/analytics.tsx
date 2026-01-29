@@ -1,3 +1,5 @@
+import { GlassCard } from '@/components/ui/GlassCard';
+import { PremiumBackground } from '@/components/ui/PremiumBackground';
 import { Colors } from '@/constants/Colors';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useTransactionStore } from '@/store/transactionStore';
@@ -33,17 +35,14 @@ export default function AnalyticsScreen() {
     const budgetPercentage = totalBudget > 0 ? Math.round((budgetUsed / totalBudget) * 100) : 0;
 
     return (
-        <View style={[styles.container, { backgroundColor: colors.background }]}>
+        <PremiumBackground>
             <ScrollView
                 contentContainerStyle={{ paddingTop: top + 20, paddingBottom: 120 }}
                 showsVerticalScrollIndicator={false}
             >
                 {/* Header */}
                 <View style={styles.header}>
-                    <Text style={[styles.title, { color: colors.text }]}>Analytics</Text>
-                    <Pressable style={styles.calendarButton}>
-                        <Ionicons name="calendar-outline" size={24} color={colors.text} />
-                    </Pressable>
+                    <Text style={[styles.title, { color: '#fff' }]}>Analytics</Text>
                 </View>
 
                 {/* Time Range Selector */}
@@ -119,31 +118,32 @@ export default function AnalyticsScreen() {
                     from={{ opacity: 0, translateY: 20 }}
                     animate={{ opacity: 1, translateY: 0 }}
                     transition={{ type: 'timing', duration: 500, delay: 100 }}
-                    style={[styles.card, { backgroundColor: colors.card }]}
                 >
-                    <Text style={[styles.cardTitle, { color: colors.text }]}>Spending Trend</Text>
+                    <GlassCard style={styles.card}>
+                        <Text style={[styles.cardTitle, { color: '#fff' }]}>Spending Trend</Text>
 
-                    <View style={styles.chartContainer}>
-                        {WEEKLY_DATA.map((day, index) => {
-                            const maxAmount = Math.max(...WEEKLY_DATA.map(d => d.amount));
-                            const barHeight = maxAmount > 0 ? (day.amount / maxAmount) * 100 : 0;
-                            const isHighest = day.amount === maxAmount && day.amount > 0;
-                            return (
-                                <View key={day.day} style={styles.barWrapper}>
-                                    <MotiView
-                                        from={{ height: 0 }}
-                                        animate={{ height: barHeight * 1.5 }}
-                                        transition={{ type: 'spring', delay: index * 50 }}
-                                        style={[
-                                            styles.bar,
-                                            { backgroundColor: isHighest ? '#A855F7' : 'rgba(168, 85, 247, 0.3)' }
-                                        ]}
-                                    />
-                                    <Text style={[styles.barLabel, { color: colors.icon }]}>{day.day}</Text>
-                                </View>
-                            );
-                        })}
-                    </View>
+                        <View style={styles.chartContainer}>
+                            {WEEKLY_DATA.map((day, index) => {
+                                const maxAmount = Math.max(...WEEKLY_DATA.map(d => d.amount));
+                                const barHeight = maxAmount > 0 ? (day.amount / maxAmount) * 100 : 0;
+                                const isHighest = day.amount === maxAmount && day.amount > 0;
+                                return (
+                                    <View key={day.day} style={styles.barWrapper}>
+                                        <MotiView
+                                            from={{ height: 0 }}
+                                            animate={{ height: barHeight * 1.5 }}
+                                            transition={{ type: 'spring', delay: index * 50 }}
+                                            style={[
+                                                styles.bar,
+                                                { backgroundColor: isHighest ? '#A855F7' : 'rgba(168, 85, 247, 0.3)' }
+                                            ]}
+                                        />
+                                        <Text style={[styles.barLabel, { color: 'rgba(255,255,255,0.7)' }]}>{day.day}</Text>
+                                    </View>
+                                );
+                            })}
+                        </View>
+                    </GlassCard>
                 </MotiView>
 
                 {/* Category Breakdown */}
@@ -151,43 +151,44 @@ export default function AnalyticsScreen() {
                     from={{ opacity: 0, translateY: 20 }}
                     animate={{ opacity: 1, translateY: 0 }}
                     transition={{ type: 'timing', duration: 500, delay: 200 }}
-                    style={[styles.card, { backgroundColor: colors.card }]}
                 >
-                    <Text style={[styles.cardTitle, { color: colors.text }]}>By Category</Text>
+                    <GlassCard style={styles.card}>
+                        <Text style={[styles.cardTitle, { color: '#fff' }]}>By Category</Text>
 
-                    {CATEGORY_DATA.map((category, index) => (
-                        <MotiView
-                            key={category.name}
-                            from={{ opacity: 0, translateX: -20 }}
-                            animate={{ opacity: 1, translateX: 0 }}
-                            transition={{ type: 'timing', delay: 300 + index * 100 }}
-                            style={styles.categoryItem}
-                        >
-                            <View style={[styles.categoryIcon, { backgroundColor: category.color + '20' }]}>
-                                <Ionicons name={category.icon as any} size={20} color={category.color} />
-                            </View>
-
-                            <View style={styles.categoryInfo}>
-                                <View style={styles.categoryHeader}>
-                                    <Text style={[styles.categoryName, { color: colors.text }]}>{category.name}</Text>
-                                    <Text style={[styles.categoryAmount, { color: colors.text }]}>
-                                        Rp {category.amount.toLocaleString('id-ID')}
-                                    </Text>
+                        {CATEGORY_DATA.map((category, index) => (
+                            <MotiView
+                                key={category.name}
+                                from={{ opacity: 0, translateX: -20 }}
+                                animate={{ opacity: 1, translateX: 0 }}
+                                transition={{ type: 'timing', delay: 300 + index * 100 }}
+                                style={styles.categoryItem}
+                            >
+                                <View style={[styles.categoryIcon, { backgroundColor: category.color + '20' }]}>
+                                    <Ionicons name={category.icon as any} size={20} color={category.color} />
                                 </View>
 
-                                <View style={styles.categoryProgressBg}>
-                                    <MotiView
-                                        from={{ width: '0%' }}
-                                        animate={{ width: `${category.percentage}%` as any }}
-                                        transition={{ type: 'timing', duration: 800, delay: 400 + index * 100 }}
-                                        style={[styles.categoryProgressFill, { backgroundColor: category.color }]}
-                                    />
-                                </View>
-                            </View>
+                                <View style={styles.categoryInfo}>
+                                    <View style={styles.categoryHeader}>
+                                        <Text style={[styles.categoryName, { color: '#fff' }]}>{category.name}</Text>
+                                        <Text style={[styles.categoryAmount, { color: '#fff' }]}>
+                                            Rp {category.amount.toLocaleString('id-ID')}
+                                        </Text>
+                                    </View>
 
-                            <Text style={[styles.categoryPercent, { color: colors.icon }]}>{category.percentage}%</Text>
-                        </MotiView>
-                    ))}
+                                    <View style={styles.categoryProgressBg}>
+                                        <MotiView
+                                            from={{ width: '0%' }}
+                                            animate={{ width: `${category.percentage}%` as any }}
+                                            transition={{ type: 'timing', duration: 800, delay: 400 + index * 100 }}
+                                            style={[styles.categoryProgressFill, { backgroundColor: category.color }]}
+                                        />
+                                    </View>
+                                </View>
+
+                                <Text style={[styles.categoryPercent, { color: 'rgba(255,255,255,0.7)' }]}>{category.percentage}%</Text>
+                            </MotiView>
+                        ))}
+                    </GlassCard>
                 </MotiView>
 
                 {/* Quick Stats */}
@@ -202,22 +203,21 @@ export default function AnalyticsScreen() {
                             from={{ opacity: 0, scale: 0.9 }}
                             animate={{ opacity: 1, scale: 1 }}
                             transition={{ type: 'spring', delay: 400 + index * 100 }}
-                            style={[styles.statCard, { backgroundColor: colors.card }]}
+                            style={{ flex: 1 }}
                         >
-                            <Text style={[styles.statValue, { color: colors.text }]}>{stat.value}</Text>
-                            <Text style={[styles.statLabel, { color: colors.icon }]}>{stat.label}</Text>
+                            <GlassCard style={styles.statCard}>
+                                <Text style={[styles.statValue, { color: '#fff' }]}>{stat.value}</Text>
+                                <Text style={[styles.statLabel, { color: 'rgba(255,255,255,0.7)' }]}>{stat.label}</Text>
+                            </GlassCard>
                         </MotiView>
                     ))}
                 </View>
             </ScrollView>
-        </View>
+        </PremiumBackground>
     );
 }
 
 const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-    },
     header: {
         flexDirection: 'row',
         justifyContent: 'space-between',
@@ -228,9 +228,6 @@ const styles = StyleSheet.create({
     title: {
         fontFamily: 'PlusJakartaSans_700Bold',
         fontSize: 32,
-    },
-    calendarButton: {
-        padding: 8,
     },
     timeSelector: {
         flexDirection: 'row',
@@ -322,8 +319,6 @@ const styles = StyleSheet.create({
     },
     card: {
         marginHorizontal: 20,
-        borderRadius: 24,
-        padding: 20,
         marginBottom: 20,
     },
     cardTitle: {
@@ -402,9 +397,7 @@ const styles = StyleSheet.create({
         gap: 12,
     },
     statCard: {
-        flex: 1,
         borderRadius: 20,
-        padding: 20,
         alignItems: 'center',
     },
     statIcon: {

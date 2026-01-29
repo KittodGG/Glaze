@@ -1,6 +1,8 @@
 import { Colors } from '@/constants/Colors';
 import { useColorScheme } from '@/hooks/use-color-scheme';
-import { Image, StyleSheet, Text, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
+import { StyleSheet, Text, View } from 'react-native';
 
 export function HomeHeader() {
     const colorScheme = useColorScheme() ?? 'light';
@@ -9,14 +11,16 @@ export function HomeHeader() {
     return (
         <View style={styles.container}>
             <View>
-                <Text style={[styles.greeting, { color: '#fff' }]}>Hi, Antigravity</Text>
+                <Text style={[styles.greeting, { color: '#fff' }]}>Welcome!</Text>
                 <Text style={[styles.subtext, { color: 'rgba(255,255,255,0.7)' }]}>Financial Health: 85%</Text>
             </View>
             <View style={styles.avatarContainer}>
-                <Image
-                    source={{ uri: 'https://i.pravatar.cc/150?img=12' }}
+                <LinearGradient
+                    colors={['#A855F7', '#7C3AED']}
                     style={styles.avatar}
-                />
+                >
+                    <Ionicons name="person" size={24} color="#fff" />
+                </LinearGradient>
             </View>
         </View>
     );
@@ -53,5 +57,7 @@ const styles = StyleSheet.create({
         borderRadius: 24,
         borderWidth: 2,
         borderColor: '#fff',
+        justifyContent: 'center',
+        alignItems: 'center',
     },
 });
