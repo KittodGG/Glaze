@@ -1,35 +1,34 @@
+import { EditTransactionSheet } from '@/components/EditTransactionSheet';
+import { MagicInputSheet } from '@/components/MagicInputSheet';
+import FloatingTabBar from '@/components/navigation/FloatingTabBar';
+import { EditSheetProvider } from '@/context/EditSheetContext';
+import { MagicSheetProvider } from '@/context/MagicSheetContext';
 import { Tabs } from 'expo-router';
 import React from 'react';
-
-import { HapticTab } from '@/components/haptic-tab';
-import { IconSymbol } from '@/components/ui/icon-symbol';
-import { Colors } from '@/constants/theme';
-import { useColorScheme } from '@/hooks/use-color-scheme';
+import { View } from 'react-native';
 
 export default function TabLayout() {
-  const colorScheme = useColorScheme();
-
   return (
-    <Tabs
-      screenOptions={{
-        tabBarActiveTintColor: Colors[colorScheme ?? 'light'].tint,
-        headerShown: false,
-        tabBarButton: HapticTab,
-      }}>
-      <Tabs.Screen
-        name="index"
-        options={{
-          title: 'Home',
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="house.fill" color={color} />,
-        }}
-      />
-      <Tabs.Screen
-        name="explore"
-        options={{
-          title: 'Explore',
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="paperplane.fill" color={color} />,
-        }}
-      />
-    </Tabs>
+    <MagicSheetProvider>
+      <EditSheetProvider>
+        <View style={{ flex: 1 }}>
+          <Tabs
+            tabBar={(props) => <FloatingTabBar {...props} />}
+            screenOptions={{
+              headerShown: false,
+              // We need transparent background for the tabs to sit on the orb background
+              sceneStyle: { backgroundColor: 'transparent' }
+            }}>
+            <Tabs.Screen name="index" options={{ title: 'Home' }} />
+            <Tabs.Screen name="analytics" options={{ title: 'Analytics' }} />
+            <Tabs.Screen name="chat" options={{ title: 'Chat' }} />
+            <Tabs.Screen name="profile" options={{ title: 'Profile' }} />
+          </Tabs>
+          <MagicInputSheet />
+          <EditTransactionSheet />
+        </View>
+      </EditSheetProvider>
+    </MagicSheetProvider>
   );
 }
+
