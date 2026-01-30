@@ -9,7 +9,7 @@ import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
 import { MotiView } from 'moti';
 import { useRef, useState } from 'react';
-import { FlatList, KeyboardAvoidingView, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { FlatList, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 interface Message {
@@ -20,11 +20,37 @@ interface Message {
 }
 
 const QUICK_PROMPTS = [
-    { icon: '📊', text: 'Spending summary' },
-    { icon: '💡', text: 'Saving tips' },
-    { icon: '🎯', text: 'Budget goals' },
-    { icon: '📈', text: 'Spending trends' },
+    // Financial Analysis
+    { icon: '📊', text: 'Spending summary', category: 'analysis' },
+    { icon: '📈', text: 'Spending trends', category: 'analysis' },
+    { icon: '🔍', text: 'Analyze my habits', category: 'analysis' },
+    { icon: '📉', text: 'Where do I overspend?', category: 'analysis' },
+    
+    // Tips & Advice
+    { icon: '💡', text: 'Saving tips', category: 'tips' },
+    { icon: '🎯', text: 'Budget goals', category: 'tips' },
+    { icon: '💪', text: 'Challenge me!', category: 'tips' },
+    { icon: '🧠', text: 'Financial lifehacks', category: 'tips' },
+    
+    // Fun & Casual
+    { icon: '🔥', text: 'Roast my spending', category: 'fun' },
+    { icon: '💅', text: 'Rate my finances', category: 'fun' },
+    { icon: '🎰', text: 'Lucky tips today', category: 'fun' },
+    { icon: '🤑', text: 'How to get rich?', category: 'fun' },
+    
+    // Specific Questions
+    { icon: '🍔', text: 'Food spending breakdown', category: 'specific' },
+    { icon: '🚗', text: 'Transport expenses', category: 'specific' },
+    { icon: '🛒', text: 'Shopping habits', category: 'specific' },
+    { icon: '📱', text: 'Subscription review', category: 'specific' },
 ];
+
+const INITIAL_MESSAGE: Message = {
+    id: '1',
+    text: 'Hey! 👋 Aku Glaze AI, asisten keuangan pribadimu. Mau tanya soal pengeluaranmu atau butuh tips hemat? Langsung tanya aja, no judgment! 💜',
+    sender: 'bot',
+    timestamp: new Date()
+};
 
 export default function ChatScreen() {
     const colorScheme = useColorScheme() ?? 'light';
@@ -32,7 +58,6 @@ export default function ChatScreen() {
     const { top, bottom } = useSafeAreaInsets();
     const transactions = useTransactionStore((s) => s.transactions);
 
-    // Prepare financial context from real data
     const financialContext = `
 Available Data:
 - Total Transactions: ${transactions.length}
@@ -41,23 +66,24 @@ Available Data:
     ).join('\n')}
     `.trim();
 
-    const [messages, setMessages] = useState<Message[]>([
-        {
-            id: '1',
-            text: 'Hey! 👋 Aku Glaze AI, asisten keuangan pribadimu. Mau tanya soal pengeluaranmu atau butuh tips hemat? Tanya aja!',
-            sender: 'bot',
-            timestamp: new Date()
-        }
-    ]);
+    const [messages, setMessages] = useState<Message[]>([INITIAL_MESSAGE]);
     const [input, setInput] = useState('');
     const [isTyping, setIsTyping] = useState(false);
+    const [showPresets, setShowPresets] = useState(true);
     const flatListRef = useRef<FlatList>(null);
+
+    const handleNewChat = () => {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+        setMessages([INITIAL_MESSAGE]);
+        setShowPresets(true);
+    };
 
     const handleSend = async (text?: string) => {
         const messageText = text || input.trim();
         if (!messageText) return;
 
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        setShowPresets(false); // Hide presets after first message
 
         const userMsg: Message = {
             id: Date.now().toString(),
@@ -157,9 +183,38 @@ Available Data:
         </MotiView>
     );
 
+    const PresetPrompts = () => (
+        <MotiView
+            from={{ opacity: 0, translateY: 20 }}
+            animate={{ opacity: 1, translateY: 0 }}
+            style={styles.presetsContainer}
+        >
+            <Text style={styles.presetsTitle}>💬 Quick Questions</Text>
+            <ScrollView 
+                horizontal 
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.presetsScroll}
+            >
+                {QUICK_PROMPTS.map((prompt, index) => (
+                    <Pressable
+                        key={index}
+                        onPress={() => handleSend(prompt.text)}
+                        style={({ pressed }) => [
+                            styles.presetChip,
+                            { backgroundColor: colors.card, opacity: pressed ? 0.8 : 1 }
+                        ]}
+                    >
+                        <Text style={styles.presetIcon}>{prompt.icon}</Text>
+                        <Text style={[styles.presetText, { color: colors.text }]}>{prompt.text}</Text>
+                    </Pressable>
+                ))}
+            </ScrollView>
+        </MotiView>
+    );
+
     return (
         <PremiumBackground>
-            {/* Gradient Header */}
+            {/* Header */}
             <LinearGradient
                 colors={colorScheme === 'dark'
                     ? ['rgba(123, 58, 237, 0.3)', 'transparent']
@@ -181,6 +236,18 @@ Available Data:
                             </Text>
                         </View>
                     </View>
+
+                    {/* New Chat Button */}
+                    <Pressable
+                        onPress={handleNewChat}
+                        style={({ pressed }) => [
+                            styles.newChatButton,
+                            { opacity: pressed ? 0.8 : 1 }
+                        ]}
+                    >
+                        <Ionicons name="add-circle" size={20} color="#A855F7" />
+                        <Text style={styles.newChatText}>New Chat</Text>
+                    </Pressable>
                 </View>
             </LinearGradient>
 
@@ -196,39 +263,38 @@ Available Data:
                     keyExtractor={item => item.id}
                     contentContainerStyle={styles.messagesContainer}
                     onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: true })}
-                    ListFooterComponent={isTyping ? <TypingIndicator /> : null}
+                    ListFooterComponent={
+                        <>
+                            {isTyping && <TypingIndicator />}
+                            {showPresets && messages.length <= 1 && <PresetPrompts />}
+                        </>
+                    }
                 />
 
-                {/* Input Area with Presets */}
+                {/* Input Area */}
                 <BlurView
                     intensity={80}
                     tint={colorScheme}
-                    style={[styles.inputWrapper, { paddingBottom: Math.max(bottom, 20) + 80 }]}
+                    style={[styles.inputWrapper, { paddingBottom: Math.max(bottom, 20) + 70 }]}
                 >
-                    {/* Quick Prompts - horizontal scroll above input */}
-                    {messages.length <= 2 && (
-                        <MotiView
-                            from={{ opacity: 0, translateY: 10 }}
-                            animate={{ opacity: 1, translateY: 0 }}
-                            style={styles.quickPromptsContainer}
+                    {/* Always visible compact presets */}
+                    {!showPresets && (
+                        <ScrollView 
+                            horizontal 
+                            showsHorizontalScrollIndicator={false}
+                            style={styles.compactPresets}
+                            contentContainerStyle={styles.compactPresetsContent}
                         >
-                            <FlatList
-                                horizontal
-                                showsHorizontalScrollIndicator={false}
-                                data={QUICK_PROMPTS}
-                                keyExtractor={(_, index) => index.toString()}
-                                contentContainerStyle={styles.quickPromptsList}
-                                renderItem={({ item: prompt }) => (
-                                    <Pressable
-                                        onPress={() => handleSend(prompt.text)}
-                                        style={[styles.quickPromptButton, { backgroundColor: colors.card }]}
-                                    >
-                                        <Text style={styles.quickPromptIcon}>{prompt.icon}</Text>
-                                        <Text style={[styles.quickPromptText, { color: colors.text }]}>{prompt.text}</Text>
-                                    </Pressable>
-                                )}
-                            />
-                        </MotiView>
+                            {QUICK_PROMPTS.slice(0, 8).map((prompt, index) => (
+                                <Pressable
+                                    key={index}
+                                    onPress={() => handleSend(prompt.text)}
+                                    style={[styles.compactChip, { backgroundColor: 'rgba(168, 85, 247, 0.1)' }]}
+                                >
+                                    <Text style={styles.compactChipText}>{prompt.icon} {prompt.text}</Text>
+                                </Pressable>
+                            ))}
+                        </ScrollView>
                     )}
 
                     {/* Input Container */}
@@ -295,9 +361,25 @@ const styles = StyleSheet.create({
         fontFamily: 'PlusJakartaSans_400Regular',
         fontSize: 12,
     },
+    newChatButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
+        backgroundColor: 'rgba(168, 85, 247, 0.15)',
+        paddingHorizontal: 14,
+        paddingVertical: 8,
+        borderRadius: 20,
+        borderWidth: 1,
+        borderColor: 'rgba(168, 85, 247, 0.3)',
+    },
+    newChatText: {
+        fontFamily: 'PlusJakartaSans_600SemiBold',
+        fontSize: 13,
+        color: '#A855F7',
+    },
     messagesContainer: {
         padding: 20,
-        paddingBottom: 280, // Clear input bar + bottom navigation
+        paddingBottom: 300,
     },
     messageRow: {
         flexDirection: 'row',
@@ -345,28 +427,37 @@ const styles = StyleSheet.create({
         borderRadius: 4,
         backgroundColor: '#A855F7',
     },
-    quickPromptsContainer: {
-        marginBottom: 12,
-        marginHorizontal: -20,
+    presetsContainer: {
+        marginTop: 20,
+        paddingVertical: 16,
     },
-    quickPromptsList: {
-        paddingHorizontal: 20,
+    presetsTitle: {
+        fontFamily: 'PlusJakartaSans_600SemiBold',
+        fontSize: 16,
+        color: '#fff',
+        marginBottom: 14,
+        paddingHorizontal: 4,
+    },
+    presetsScroll: {
         gap: 10,
+        paddingRight: 20,
     },
-    quickPromptButton: {
+    presetChip: {
         flexDirection: 'row',
         alignItems: 'center',
-        paddingHorizontal: 14,
-        paddingVertical: 10,
+        paddingHorizontal: 16,
+        paddingVertical: 12,
         borderRadius: 20,
-        gap: 6,
+        gap: 8,
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.1)',
     },
-    quickPromptIcon: {
-        fontSize: 14,
+    presetIcon: {
+        fontSize: 16,
     },
-    quickPromptText: {
+    presetText: {
         fontFamily: 'PlusJakartaSans_500Medium',
-        fontSize: 13,
+        fontSize: 14,
     },
     inputWrapper: {
         position: 'absolute',
@@ -374,7 +465,25 @@ const styles = StyleSheet.create({
         left: 0,
         right: 0,
         paddingHorizontal: 20,
-        paddingTop: 15,
+        paddingTop: 12,
+    },
+    compactPresets: {
+        marginBottom: 12,
+        marginHorizontal: -20,
+    },
+    compactPresetsContent: {
+        paddingHorizontal: 20,
+        gap: 8,
+    },
+    compactChip: {
+        paddingHorizontal: 12,
+        paddingVertical: 8,
+        borderRadius: 16,
+    },
+    compactChipText: {
+        fontFamily: 'PlusJakartaSans_500Medium',
+        fontSize: 12,
+        color: '#A855F7',
     },
     inputContainer: {
         flexDirection: 'row',

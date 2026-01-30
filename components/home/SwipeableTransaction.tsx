@@ -1,5 +1,6 @@
+import { useConfirmAlert } from '@/components/ui/CustomAlert';
+import { GlassView } from '@/components/ui/GlassView';
 import { Transaction, useTransactionStore } from '@/store/transactionStore';
-import { createTwoButtonAlert } from '@/components/ui/alert';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import React, { useCallback } from 'react';
@@ -13,8 +14,6 @@ import Animated, {
     withTiming,
 } from 'react-native-reanimated';
 
-import { GlassView } from '@/components/ui/GlassView';
-
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const DELETE_THRESHOLD = -80;
 const SNAP_POINT = -70;
@@ -26,6 +25,7 @@ interface SwipeableTransactionProps {
 
 export function SwipeableTransaction({ item, onPress }: SwipeableTransactionProps) {
     const deleteTransaction = useTransactionStore((s) => s.deleteTransaction);
+    const { confirmDelete } = useConfirmAlert();
     const translateX = useSharedValue(0);
     const itemHeight = useSharedValue(75);
     const opacity = useSharedValue(1);
@@ -34,52 +34,36 @@ export function SwipeableTransaction({ item, onPress }: SwipeableTransactionProp
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     }, []);
 
-    const confirmDelete = useCallback(() => {
-        createTwoButtonAlert({
-            title: 'Delete Transaction',
-            message: `Are you sure you want to delete "${item.title}"?`,
-            buttons: [
-                {
-                    text: 'Cancel',
-                    style: 'cancel',
-                    onPress: () => {
-                        translateX.value = withSpring(0);
-                    }
-                },
-                {
-                    text: 'Delete',
-                    style: 'destructive',
-                    onPress: () => {
-                        opacity.value = withTiming(0, { duration: 200 });
-                        itemHeight.value = withTiming(0, { duration: 300 }, () => {
-                            runOnJS(deleteTransaction)(item.id, true);
-                        });
-                    },
-                },
-            ],
+    const handleDelete = useCallback(() => {
+        confirmDelete(item.title, () => {
+            opacity.value = withTiming(0, { duration: 200 });
+            itemHeight.value = withTiming(0, { duration: 300 }, () => {
+                runOnJS(deleteTransaction)(item.id, true);
+            });
         });
-    }, [item.id, item.title, deleteTransaction]);
+    }, [item.id, item.title, deleteTransaction, confirmDelete]);
 
     const handleTrashPress = useCallback(() => {
         triggerHaptic();
-        confirmDelete();
-    }, [triggerHaptic, confirmDelete]);
+        handleDelete();
+    }, [triggerHaptic, handleDelete]);
+
+    const resetSwipe = useCallback(() => {
+        translateX.value = withSpring(0);
+    }, []);
 
     const panGesture = Gesture.Pan()
         .activeOffsetX([-10, 10])
         .onUpdate((event) => {
-            // Only allow swiping left
             if (event.translationX < 0) {
                 translateX.value = Math.max(event.translationX, -100);
             }
         })
         .onEnd((event) => {
             if (event.translationX < DELETE_THRESHOLD) {
-                // Snap to show delete button
                 translateX.value = withSpring(SNAP_POINT);
                 runOnJS(triggerHaptic)();
             } else {
-                // Snap back
                 translateX.value = withSpring(0);
             }
         });
@@ -112,14 +96,12 @@ export function SwipeableTransaction({ item, onPress }: SwipeableTransactionProp
 
     return (
         <Animated.View style={animatedContainerStyle}>
-            {/* Delete action background */}
             <Animated.View style={[styles.deleteAction, animatedDeleteStyle]}>
                 <Pressable onPress={handleTrashPress} style={styles.deleteIconWrapper}>
                     <Ionicons name="trash" size={24} color="#fff" />
                 </Pressable>
             </Animated.View>
 
-            {/* Swipeable card */}
             <GestureDetector gesture={composedGesture}>
                 <Animated.View style={[styles.cardWrapper, animatedCardStyle]}>
                     <GlassView style={styles.item} intensity={60} containerStyle={styles.itemContainer}>

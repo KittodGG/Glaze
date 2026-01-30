@@ -11,6 +11,7 @@ import {
     View,
     ViewStyle,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
     Gesture,
     GestureDetector,
@@ -242,7 +243,7 @@ export function BottomSheet({
                             {/* Content */}
                             <ScrollView
                                 style={styles.scrollView}
-                                contentContainerStyle={styles.scrollContent}
+                                contentContainerStyle={[styles.scrollContent, { paddingBottom: 100 }]}
                                 keyboardShouldPersistTaps='handled'
                                 showsVerticalScrollIndicator={false}
                             >

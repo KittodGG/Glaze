@@ -1,9 +1,9 @@
+import { BarChart, BarChartData } from '@/components/charts/BarChart';
 import { GlassCard } from '@/components/ui/GlassCard';
-import { GlassView } from '@/components/ui/GlassView';
 import { PremiumBackground } from '@/components/ui/PremiumBackground';
 import { Colors } from '@/constants/Colors';
 import { useColorScheme } from '@/hooks/use-color-scheme';
-import { Transaction, useTransactionStore } from '@/store/transactionStore';
+import { useTransactionStore } from '@/store/transactionStore';
 import { useWalletStore } from '@/store/walletStore';
 import { getCategoryBreakdown, getChartData, getFilteredTransactions, getSpendingStats, TimeRange } from '@/utils/analyticsHelpers';
 import { Ionicons } from '@expo/vector-icons';
@@ -13,19 +13,17 @@ import { useMemo, useState } from 'react';
 import { Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+const CHART_COLORS = ['#A855F7', '#6366F1', '#3B82F6', '#22C55E', '#F59E0B', '#EF4444', '#EC4899'];
 
 export default function AnalyticsScreen() {
     const colorScheme = useColorScheme() ?? 'light';
     const colors = Colors[colorScheme];
     const { top } = useSafeAreaInsets();
-    const isAndroid = Platform.OS === 'android';
     const [timeRange, setTimeRange] = useState<TimeRange>('week');
 
-    // Get real data from stores
     const transactions = useTransactionStore((s) => s.transactions);
     const wallets = useWalletStore((s) => s.wallets);
 
-    // Compute analytics from real transaction data with time range
     const CATEGORY_DATA = useMemo(() => getCategoryBreakdown(transactions, timeRange), [transactions, timeRange]);
     const CHART_DATA = useMemo(() => getChartData(transactions, timeRange), [transactions, timeRange]);
     const stats = useMemo(() => getSpendingStats(transactions, timeRange), [transactions, timeRange]);
@@ -33,6 +31,15 @@ export default function AnalyticsScreen() {
     const totalBudget = useMemo(() => wallets.reduce((sum, w) => sum + w.balance, 0), [wallets]);
     const budgetUsed = stats.totalSpent;
     const budgetPercentage = totalBudget > 0 ? Math.round((budgetUsed / totalBudget) * 100) : 0;
+
+    // Convert chart data for BarChart component
+    const barChartData: BarChartData[] = useMemo(() => {
+        return CHART_DATA.map((item, index) => ({
+            label: item.label,
+            value: item.amount,
+            color: item.isActive ? '#A855F7' : CHART_COLORS[index % CHART_COLORS.length],
+        }));
+    }, [CHART_DATA]);
 
     const getPeriodLabel = () => {
         switch (timeRange) {
@@ -49,6 +56,31 @@ export default function AnalyticsScreen() {
             default: return 'vs Last Week';
         }
     };
+
+    // Stats card data with icons and colors
+    const statsData = [
+        {
+            icon: 'receipt-outline' as const,
+            label: 'Transactions',
+            value: stats.transactionCount.toString(),
+            color: '#A855F7',
+            bgColor: 'rgba(168, 85, 247, 0.15)',
+        },
+        {
+            icon: 'trending-up-outline' as const,
+            label: 'Avg/Transaction',
+            value: `Rp ${stats.averageTransaction >= 1000 ? `${(stats.averageTransaction / 1000).toFixed(0)}k` : stats.averageTransaction}`,
+            color: '#3B82F6',
+            bgColor: 'rgba(59, 130, 246, 0.15)',
+        },
+        {
+            icon: stats.periodChange >= 0 ? 'arrow-up-outline' as const : 'arrow-down-outline' as const,
+            label: getPreviousPeriodLabel(),
+            value: `${stats.periodChange >= 0 ? '+' : ''}${stats.periodChange}%`,
+            color: stats.periodChange >= 0 ? '#EF4444' : '#22C55E',
+            bgColor: stats.periodChange >= 0 ? 'rgba(239, 68, 68, 0.15)' : 'rgba(34, 197, 94, 0.15)',
+        },
+    ];
 
     return (
         <PremiumBackground>
@@ -95,7 +127,7 @@ export default function AnalyticsScreen() {
                         style={styles.budgetCard}
                     >
                         <View style={styles.budgetHeader}>
-                            <Text style={styles.budgetLabel}>Monthly Budget</Text>
+                            <Text style={styles.budgetLabel}>Budget Overview</Text>
                             <View style={styles.budgetBadge}>
                                 <Text style={styles.budgetBadgeText}>{Math.round(budgetPercentage)}% used</Text>
                             </View>
@@ -104,7 +136,6 @@ export default function AnalyticsScreen() {
                         <Text style={styles.budgetAmount}>Rp {budgetUsed.toLocaleString('id-ID')}</Text>
                         <Text style={styles.budgetSubtext}>of Rp {totalBudget.toLocaleString('id-ID')}</Text>
 
-                        {/* Progress Bar */}
                         <View style={styles.progressContainer}>
                             <View style={styles.progressBg}>
                                 <MotiView
@@ -129,7 +160,7 @@ export default function AnalyticsScreen() {
                     </LinearGradient>
                 </MotiView>
 
-                {/* Spending Chart */}
+                {/* Spending Chart - Using BarChart */}
                 <MotiView
                     from={{ opacity: 0, translateY: 20 }}
                     animate={{ opacity: 1, translateY: 0 }}
@@ -137,113 +168,117 @@ export default function AnalyticsScreen() {
                 >
                     <GlassCard style={styles.card}>
                         <Text style={[styles.cardTitle, { color: '#fff' }]}>Spending Trend</Text>
-
-                        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                            <View style={[styles.chartContainer, { minWidth: timeRange === 'year' ? 400 : undefined }]}>
-                                {CHART_DATA.map((item, index) => {
-                                    const maxAmount = Math.max(...CHART_DATA.map(d => d.amount));
-                                    const barHeight = maxAmount > 0 ? (item.amount / maxAmount) * 100 : 0;
-                                    const isHighest = item.amount === maxAmount && item.amount > 0;
-                                    return (
-                                        <View key={item.label} style={styles.barWrapper}>
-                                            <MotiView
-                                                from={{ height: 0 }}
-                                                animate={{ height: barHeight * 1.5 }}
-                                                transition={{ type: 'spring', delay: index * 50 }}
-                                                style={[
-                                                    styles.bar,
-                                                    { backgroundColor: item.isActive ? '#A855F7' : (isHighest ? '#A855F7' : 'rgba(168, 85, 247, 0.3)') }
-                                                ]}
-                                            />
-                                            <Text style={[styles.barLabel, { color: item.isActive ? '#A855F7' : 'rgba(255,255,255,0.7)' }]}>{item.label}</Text>
-                                        </View>
-                                    );
-                                })}
+                        <Text style={styles.cardSubtitle}>{getPeriodLabel()}</Text>
+                        
+                        {barChartData.length > 0 && barChartData.some(d => d.value > 0) ? (
+                            <BarChart
+                                data={barChartData}
+                                config={{
+                                    height: 200,
+                                    showLabels: true,
+                                    showValues: true,
+                                    animated: true,
+                                    duration: 800,
+                                    barWidth: timeRange === 'year' ? 24 : 32,
+                                }}
+                            />
+                        ) : (
+                            <View style={styles.emptyChart}>
+                                <Ionicons name="bar-chart-outline" size={48} color="rgba(255,255,255,0.2)" />
+                                <Text style={styles.emptyChartText}>No spending data {getPeriodLabel().toLowerCase()}</Text>
                             </View>
-                        </ScrollView>
+                        )}
                     </GlassCard>
                 </MotiView>
 
-                {/* Category Breakdown */}
-                <MotiView
-                    from={{ opacity: 0, translateY: 20 }}
-                    animate={{ opacity: 1, translateY: 0 }}
-                    transition={{ type: 'timing', duration: 500, delay: 200 }}
-                >
-                    <GlassCard style={styles.card}>
-                        <Text style={[styles.cardTitle, { color: '#fff' }]}>By Category</Text>
-
-                        {CATEGORY_DATA.map((category, index) => (
-                            <MotiView
-                                key={category.name}
-                                from={{ opacity: 0, translateX: -20 }}
-                                animate={{ opacity: 1, translateX: 0 }}
-                                transition={{ type: 'timing', delay: 300 + index * 100 }}
-                                style={styles.categoryItem}
-                            >
-                                <View style={[styles.categoryIcon, { backgroundColor: category.color + '20' }]}>
-                                    <Ionicons name={category.icon as any} size={20} color={category.color} />
-                                </View>
-
-                                <View style={styles.categoryInfo}>
-                                    <View style={styles.categoryHeader}>
-                                        <Text style={[styles.categoryName, { color: '#fff' }]}>{category.name}</Text>
-                                        <Text style={[styles.categoryAmount, { color: '#fff' }]}>
-                                            Rp {category.amount.toLocaleString('id-ID')}
-                                        </Text>
-                                    </View>
-
-                                    <View style={styles.categoryProgressBg}>
-                                        <MotiView
-                                            from={{ width: '0%' }}
-                                            animate={{ width: `${category.percentage}%` as any }}
-                                            transition={{ type: 'timing', duration: 800, delay: 400 + index * 100 }}
-                                            style={[styles.categoryProgressFill, { backgroundColor: category.color }]}
-                                        />
-                                    </View>
-                                </View>
-
-                                <Text style={[styles.categoryPercent, { color: 'rgba(255,255,255,0.7)' }]}>{category.percentage}%</Text>
-                            </MotiView>
-                        ))}
-                    </GlassCard>
-                </MotiView>
-
-                {/* Quick Stats */}
+                {/* Quick Stats - Improved Cards */}
                 <View style={styles.statsRow}>
-                    {[
-                        { label: 'Transactions', value: stats.transactionCount.toString() },
-                        { label: 'Avg/Transaction', value: `Rp ${(stats.averageTransaction / 1000).toFixed(0)}k` },
-                        { label: getPreviousPeriodLabel(), value: `${stats.periodChange >= 0 ? '+' : ''}${stats.periodChange}%` }
-                    ].map((stat, index) => (
+                    {statsData.map((stat, index) => (
                         <MotiView
                             key={index}
                             from={{ opacity: 0, scale: 0.9 }}
                             animate={{ opacity: 1, scale: 1 }}
-                            transition={{ type: 'spring', delay: 400 + index * 100 }}
+                            transition={{ type: 'spring', delay: 200 + index * 100 }}
                             style={{ flex: 1 }}
                         >
                             <GlassCard style={styles.statCard}>
+                                <View style={[styles.statIconBox, { backgroundColor: stat.bgColor }]}>
+                                    <Ionicons name={stat.icon} size={20} color={stat.color} />
+                                </View>
                                 <Text style={[styles.statValue, { color: '#fff' }]}>{stat.value}</Text>
-                                <Text style={[styles.statLabel, { color: 'rgba(255,255,255,0.7)' }]}>{stat.label}</Text>
+                                <Text style={[styles.statLabel, { color: 'rgba(255,255,255,0.6)' }]}>{stat.label}</Text>
                             </GlassCard>
                         </MotiView>
                     ))}
                 </View>
 
-                {/* Transaction History */}
+                {/* Category Breakdown */}
                 <MotiView
                     from={{ opacity: 0, translateY: 20 }}
                     animate={{ opacity: 1, translateY: 0 }}
                     transition={{ type: 'timing', duration: 500, delay: 300 }}
-                    style={{ marginTop: 20 }}
                 >
                     <GlassCard style={styles.card}>
-                        <Text style={[styles.cardTitle, { color: '#fff' }]}>Transaction History</Text>
+                        <Text style={[styles.cardTitle, { color: '#fff' }]}>By Category</Text>
+
+                        {CATEGORY_DATA.length === 0 ? (
+                            <View style={styles.emptyState}>
+                                <Ionicons name="pie-chart-outline" size={48} color="rgba(255,255,255,0.2)" />
+                                <Text style={styles.emptyStateText}>No category data available</Text>
+                            </View>
+                        ) : (
+                            CATEGORY_DATA.map((category, index) => (
+                                <MotiView
+                                    key={category.name}
+                                    from={{ opacity: 0, translateX: -20 }}
+                                    animate={{ opacity: 1, translateX: 0 }}
+                                    transition={{ type: 'timing', delay: 400 + index * 100 }}
+                                    style={styles.categoryItem}
+                                >
+                                    <View style={[styles.categoryIcon, { backgroundColor: category.color + '20' }]}>
+                                        <Ionicons name={category.icon as any} size={20} color={category.color} />
+                                    </View>
+
+                                    <View style={styles.categoryInfo}>
+                                        <View style={styles.categoryHeader}>
+                                            <Text style={[styles.categoryName, { color: '#fff' }]}>{category.name}</Text>
+                                            <Text style={[styles.categoryAmount, { color: '#fff' }]}>
+                                                Rp {category.amount.toLocaleString('id-ID')}
+                                            </Text>
+                                        </View>
+
+                                        <View style={styles.categoryProgressBg}>
+                                            <MotiView
+                                                from={{ width: '0%' }}
+                                                animate={{ width: `${category.percentage}%` as any }}
+                                                transition={{ type: 'timing', duration: 800, delay: 500 + index * 100 }}
+                                                style={[styles.categoryProgressFill, { backgroundColor: category.color }]}
+                                            />
+                                        </View>
+                                    </View>
+
+                                    <Text style={[styles.categoryPercent, { color: 'rgba(255,255,255,0.7)' }]}>{category.percentage}%</Text>
+                                </MotiView>
+                            ))
+                        )}
+                    </GlassCard>
+                </MotiView>
+
+                {/* Transaction History */}
+                <MotiView
+                    from={{ opacity: 0, translateY: 20 }}
+                    animate={{ opacity: 1, translateY: 0 }}
+                    transition={{ type: 'timing', duration: 500, delay: 400 }}
+                >
+                    <GlassCard style={styles.card}>
+                        <View style={styles.cardHeaderRow}>
+                            <Text style={[styles.cardTitle, { color: '#fff', marginBottom: 0 }]}>Recent Transactions</Text>
+                            <Text style={styles.cardCount}>{filteredTransactions.length} items</Text>
+                        </View>
 
                         {filteredTransactions.length === 0 ? (
                             <View style={styles.emptyState}>
-                                <Ionicons name="wallet-outline" size={48} color="rgba(255,255,255,0.3)" />
+                                <Ionicons name="wallet-outline" size={48} color="rgba(255,255,255,0.2)" />
                                 <Text style={styles.emptyStateText}>No transactions {getPeriodLabel().toLowerCase()}</Text>
                             </View>
                         ) : (
@@ -252,7 +287,7 @@ export default function AnalyticsScreen() {
                                     key={item.id}
                                     from={{ opacity: 0, translateX: -20 }}
                                     animate={{ opacity: 1, translateX: 0 }}
-                                    transition={{ type: 'timing', delay: 400 + index * 50 }}
+                                    transition={{ type: 'timing', delay: 500 + index * 50 }}
                                     style={styles.historyItem}
                                 >
                                     <View style={styles.historyIconBox}>
@@ -261,7 +296,7 @@ export default function AnalyticsScreen() {
                                     <View style={styles.historyInfo}>
                                         <Text style={styles.historyTitle}>{item.title}</Text>
                                         <Text style={styles.historyDate}>
-                                            {new Date(item.date).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })} - {item.source_wallet}
+                                            {new Date(item.date).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })} • {item.source_wallet}
                                         </Text>
                                     </View>
                                     <Text style={[styles.historyAmount, { color: item.type === 'income' ? '#22C55E' : '#EF4444' }]}>
@@ -388,26 +423,64 @@ const styles = StyleSheet.create({
     cardTitle: {
         fontFamily: 'PlusJakartaSans_700Bold',
         fontSize: 18,
-        marginBottom: 20,
+        marginBottom: 4,
     },
-    chartContainer: {
+    cardSubtitle: {
+        fontFamily: 'PlusJakartaSans_400Regular',
+        fontSize: 13,
+        color: 'rgba(255,255,255,0.5)',
+        marginBottom: 16,
+    },
+    cardHeaderRow: {
         flexDirection: 'row',
         justifyContent: 'space-between',
-        alignItems: 'flex-end',
-        height: 180,
-    },
-    barWrapper: {
         alignItems: 'center',
-        flex: 1,
+        marginBottom: 16,
     },
-    bar: {
-        width: 28,
-        borderRadius: 8,
-        marginBottom: 8,
+    cardCount: {
+        fontFamily: 'PlusJakartaSans_500Medium',
+        fontSize: 13,
+        color: 'rgba(255,255,255,0.5)',
     },
-    barLabel: {
+    emptyChart: {
+        height: 180,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    emptyChartText: {
         fontFamily: 'PlusJakartaSans_400Regular',
-        fontSize: 12,
+        fontSize: 14,
+        color: 'rgba(255,255,255,0.4)',
+        marginTop: 12,
+    },
+    statsRow: {
+        flexDirection: 'row',
+        paddingHorizontal: 20,
+        gap: 12,
+        marginBottom: 20,
+    },
+    statCard: {
+        borderRadius: 20,
+        alignItems: 'center',
+        paddingVertical: 16,
+    },
+    statIconBox: {
+        width: 44,
+        height: 44,
+        borderRadius: 14,
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginBottom: 10,
+    },
+    statValue: {
+        fontFamily: 'PlusJakartaSans_700Bold',
+        fontSize: 18,
+    },
+    statLabel: {
+        fontFamily: 'PlusJakartaSans_400Regular',
+        fontSize: 11,
+        marginTop: 4,
+        textAlign: 'center',
     },
     categoryItem: {
         flexDirection: 'row',
@@ -455,32 +528,6 @@ const styles = StyleSheet.create({
         width: 40,
         textAlign: 'right',
     },
-    statsRow: {
-        flexDirection: 'row',
-        paddingHorizontal: 20,
-        gap: 12,
-    },
-    statCard: {
-        borderRadius: 20,
-        alignItems: 'center',
-    },
-    statIcon: {
-        width: 48,
-        height: 48,
-        borderRadius: 16,
-        justifyContent: 'center',
-        alignItems: 'center',
-        marginBottom: 12,
-    },
-    statValue: {
-        fontFamily: 'PlusJakartaSans_700Bold',
-        fontSize: 24,
-    },
-    statLabel: {
-        fontFamily: 'PlusJakartaSans_400Regular',
-        fontSize: 12,
-        marginTop: 4,
-    },
     emptyState: {
         alignItems: 'center',
         paddingVertical: 32,
@@ -488,7 +535,7 @@ const styles = StyleSheet.create({
     emptyStateText: {
         fontFamily: 'PlusJakartaSans_400Regular',
         fontSize: 14,
-        color: 'rgba(255,255,255,0.5)',
+        color: 'rgba(255,255,255,0.4)',
         marginTop: 12,
     },
     historyItem: {
