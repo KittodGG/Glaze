@@ -1,5 +1,4 @@
-import { Colors } from '@/constants/Colors';
-import { useColorScheme } from '@/hooks/use-color-scheme';
+import { BottomSheet } from '@/components/ui/bottom-sheet';
 import { Wallet } from '@/services/walletService';
 import { useWalletStore } from '@/store/walletStore';
 import { Ionicons } from '@expo/vector-icons';
@@ -10,31 +9,24 @@ import { MotiView } from 'moti';
 import React, { useState } from 'react';
 import {
     Alert,
-    Dimensions,
-    Modal,
     Pressable,
-    ScrollView,
     StyleSheet,
     Text,
     TextInput,
     View
 } from 'react-native';
 
-const { height: SCREEN_HEIGHT } = Dimensions.get('window');
-
-// Preset wallet icons (emoji)
 const WALLET_ICONS = ['💳', '💰', '🏦', '💵', '💎', '🪙', '📱', '💸'];
 
-// Preset gradient colors
 const WALLET_COLORS: [string, string][] = [
-    ['#005C97', '#363795'], // Blue (BCA style)
-    ['#00B4DB', '#0083B0'], // Cyan (GoPay style)
-    ['#8E2DE2', '#4A00E0'], // Purple (OVO style)
-    ['#11998e', '#38ef7d'], // Green (Cash style)
-    ['#F2994A', '#F2C94C'], // Orange/Gold
-    ['#EB5757', '#F2994A'], // Red/Orange
-    ['#2D3436', '#636E72'], // Dark gray
-    ['#6C63FF', '#3F3D56'], // Violet
+    ['#005C97', '#363795'],
+    ['#00B4DB', '#0083B0'],
+    ['#8E2DE2', '#4A00E0'],
+    ['#11998e', '#38ef7d'],
+    ['#F2994A', '#F2C94C'],
+    ['#EB5757', '#F2994A'],
+    ['#2D3436', '#636E72'],
+    ['#6C63FF', '#3F3D56'],
 ];
 
 interface WalletManagerSheetProps {
@@ -43,9 +35,6 @@ interface WalletManagerSheetProps {
 }
 
 export function WalletManagerSheet({ visible, onClose }: WalletManagerSheetProps) {
-    const colorScheme = useColorScheme() ?? 'light';
-    const colors = Colors[colorScheme];
-
     const wallets = useWalletStore((s) => s.wallets);
     const addWallet = useWalletStore((s) => s.addWallet);
     const updateWallet = useWalletStore((s) => s.updateWallet);
@@ -54,7 +43,6 @@ export function WalletManagerSheet({ visible, onClose }: WalletManagerSheetProps
     const [mode, setMode] = useState<'list' | 'add' | 'edit'>('list');
     const [editingWallet, setEditingWallet] = useState<Wallet | null>(null);
 
-    // Form state
     const [name, setName] = useState('');
     const [balance, setBalance] = useState('');
     const [selectedIcon, setSelectedIcon] = useState('💳');
@@ -151,241 +139,176 @@ export function WalletManagerSheet({ visible, onClose }: WalletManagerSheetProps
         return parseInt(num).toLocaleString('id-ID');
     };
 
+    const getTitle = () => {
+        if (mode === 'list') return 'Manage Wallets';
+        if (mode === 'add') return 'Add Wallet';
+        return 'Edit Wallet';
+    };
+
+    const handleBack = () => {
+        setMode('list');
+        resetForm();
+    };
+
     return (
-        <Modal
-            visible={visible}
-            animationType="slide"
-            transparent
-            onRequestClose={handleClose}
+        <BottomSheet
+            isVisible={visible}
+            onClose={handleClose}
+            title={getTitle()}
+            snapPoints={[0.8]}
+            showBack={mode !== 'list'}
+            onBack={handleBack}
         >
-            <View style={styles.overlay}>
-                <Pressable style={styles.backdrop} onPress={handleClose} />
-
-                <MotiView
-                    from={{ translateY: SCREEN_HEIGHT }}
-                    animate={{ translateY: 0 }}
-                    transition={{ type: 'spring', damping: 20 }}
-                    style={[styles.sheet, { backgroundColor: colors.background }]}
-                >
-                    {/* Header */}
-                    <View style={styles.header}>
-                        {mode !== 'list' ? (
-                            <Pressable onPress={() => { setMode('list'); resetForm(); }}>
-                                <Ionicons name="arrow-back" size={24} color={colors.text} />
-                            </Pressable>
-                        ) : (
-                            <View style={{ width: 24 }} />
-                        )}
-                        <Text style={[styles.headerTitle, { color: colors.text }]}>
-                            {mode === 'list' ? 'Manage Wallets' : mode === 'add' ? 'Tambah Wallet' : 'Edit Wallet'}
-                        </Text>
-                        <Pressable onPress={handleClose}>
-                            <Ionicons name="close" size={24} color={colors.text} />
-                        </Pressable>
-                    </View>
-
-                    <View style={styles.handle} />
-
-                    {mode === 'list' ? (
-                        /* LIST VIEW */
-                        <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-                            {wallets.map((wallet, index) => (
-                                <MotiView
-                                    key={wallet.id}
-                                    from={{ opacity: 0, translateX: -20 }}
-                                    animate={{ opacity: 1, translateX: 0 }}
-                                    transition={{ delay: index * 50 }}
-                                >
-                                    <Pressable
-                                        onPress={() => handleEdit(wallet)}
-                                        onLongPress={() => handleDelete(wallet)}
-                                        style={({ pressed }) => [
-                                            styles.walletItem,
-                                            { opacity: pressed ? 0.8 : 1 }
-                                        ]}
-                                    >
-                                        <LinearGradient
-                                            colors={wallet.colors}
-                                            start={{ x: 0, y: 0 }}
-                                            end={{ x: 1, y: 1 }}
-                                            style={styles.walletGradient}
-                                        >
-                                            <View style={styles.walletInfo}>
-                                                <Text style={styles.walletIcon}>{wallet.icon || '💳'}</Text>
-                                                <View>
-                                                    <Text style={styles.walletName}>{wallet.name}</Text>
-                                                    <Text style={styles.walletBalance}>
-                                                        Rp {wallet.balance.toLocaleString('id-ID')}
-                                                    </Text>
-                                                </View>
-                                            </View>
-                                            <Ionicons name="chevron-forward" size={20} color="rgba(255,255,255,0.7)" />
-                                        </LinearGradient>
-                                    </Pressable>
-                                </MotiView>
-                            ))}
-
-                            {/* Add New Button */}
+            {mode === 'list' ? (
+                /* LIST VIEW */
+                <View style={styles.content}>
+                    {wallets.map((wallet, index) => (
+                        <MotiView
+                            key={wallet.id}
+                            from={{ opacity: 0, translateX: -20 }}
+                            animate={{ opacity: 1, translateX: 0 }}
+                            transition={{ delay: index * 50 }}
+                        >
                             <Pressable
-                                onPress={handleAddNew}
+                                onPress={() => handleEdit(wallet)}
+                                onLongPress={() => handleDelete(wallet)}
                                 style={({ pressed }) => [
-                                    styles.addButton,
-                                    { backgroundColor: colors.card, opacity: pressed ? 0.8 : 1 }
-                                ]}
-                            >
-                                <Ionicons name="add-circle" size={24} color="#A855F7" />
-                                <Text style={[styles.addButtonText, { color: colors.text }]}>
-                                    Tambah Wallet Baru
-                                </Text>
-                            </Pressable>
-
-                            <Text style={[styles.hint, { color: colors.icon }]}>
-                                Tap untuk edit • Tekan lama untuk hapus
-                            </Text>
-                        </ScrollView>
-                    ) : (
-                        /* ADD/EDIT FORM */
-                        <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-                            {/* Wallet Preview */}
-                            <LinearGradient
-                                colors={WALLET_COLORS[selectedColorIndex]}
-                                start={{ x: 0, y: 0 }}
-                                end={{ x: 1, y: 1 }}
-                                style={styles.previewCard}
-                            >
-                                <Text style={styles.previewIcon}>{selectedIcon}</Text>
-                                <Text style={styles.previewName}>{name || 'Nama Wallet'}</Text>
-                                <Text style={styles.previewBalance}>
-                                    Rp {formatBalance(balance) || '0'}
-                                </Text>
-                            </LinearGradient>
-
-                            {/* Name Input */}
-                            <Text style={[styles.label, { color: colors.text }]}>Nama Wallet</Text>
-                            <BlurView intensity={40} tint={colorScheme} style={styles.inputBlur}>
-                                <TextInput
-                                    value={name}
-                                    onChangeText={setName}
-                                    placeholder="contoh: BCA, GoPay, Cash..."
-                                    placeholderTextColor={colors.icon}
-                                    style={[styles.input, { color: colors.text }]}
-                                />
-                            </BlurView>
-
-                            {/* Balance Input */}
-                            <Text style={[styles.label, { color: colors.text }]}>Saldo Awal</Text>
-                            <BlurView intensity={40} tint={colorScheme} style={styles.inputBlur}>
-                                <Text style={[styles.currencyPrefix, { color: colors.icon }]}>Rp</Text>
-                                <TextInput
-                                    value={formatBalance(balance)}
-                                    onChangeText={(t) => setBalance(t.replace(/\D/g, ''))}
-                                    placeholder="0"
-                                    placeholderTextColor={colors.icon}
-                                    keyboardType="numeric"
-                                    style={[styles.input, styles.balanceInput, { color: colors.text }]}
-                                />
-                            </BlurView>
-
-                            {/* Icon Picker */}
-                            <Text style={[styles.label, { color: colors.text }]}>Icon</Text>
-                            <View style={styles.iconPicker}>
-                                {WALLET_ICONS.map((icon) => (
-                                    <Pressable
-                                        key={icon}
-                                        onPress={() => setSelectedIcon(icon)}
-                                        style={[
-                                            styles.iconOption,
-                                            { backgroundColor: colors.card },
-                                            selectedIcon === icon && styles.iconOptionSelected
-                                        ]}
-                                    >
-                                        <Text style={styles.iconOptionText}>{icon}</Text>
-                                    </Pressable>
-                                ))}
-                            </View>
-
-                            {/* Color Picker */}
-                            <Text style={[styles.label, { color: colors.text }]}>Warna</Text>
-                            <View style={styles.colorPicker}>
-                                {WALLET_COLORS.map((clrs, index) => (
-                                    <Pressable
-                                        key={index}
-                                        onPress={() => setSelectedColorIndex(index)}
-                                        style={[
-                                            styles.colorOption,
-                                            selectedColorIndex === index && styles.colorOptionSelected
-                                        ]}
-                                    >
-                                        <LinearGradient
-                                            colors={clrs}
-                                            style={styles.colorGradient}
-                                        />
-                                    </Pressable>
-                                ))}
-                            </View>
-
-                            {/* Save Button */}
-                            <Pressable
-                                onPress={handleSave}
-                                style={({ pressed }) => [
-                                    styles.saveButton,
-                                    { opacity: pressed ? 0.9 : 1 }
+                                    styles.walletItem,
+                                    { opacity: pressed ? 0.8 : 1 }
                                 ]}
                             >
                                 <LinearGradient
-                                    colors={['#A855F7', '#7C3AED']}
-                                    style={styles.saveGradient}
+                                    colors={wallet.colors}
+                                    start={{ x: 0, y: 0 }}
+                                    end={{ x: 1, y: 1 }}
+                                    style={styles.walletGradient}
                                 >
-                                    <Text style={styles.saveText}>
-                                        {mode === 'add' ? 'Tambah Wallet' : 'Simpan Perubahan'}
-                                    </Text>
+                                    <View style={styles.walletInfo}>
+                                        <Text style={styles.walletIcon}>{wallet.icon || '💳'}</Text>
+                                        <View>
+                                            <Text style={styles.walletName}>{wallet.name}</Text>
+                                            <Text style={styles.walletBalance}>
+                                                Rp {wallet.balance.toLocaleString('id-ID')}
+                                            </Text>
+                                        </View>
+                                    </View>
+                                    <Ionicons name="chevron-forward" size={20} color="rgba(255,255,255,0.7)" />
                                 </LinearGradient>
                             </Pressable>
-                        </ScrollView>
-                    )}
-                </MotiView>
-            </View>
-        </Modal>
+                        </MotiView>
+                    ))}
+
+                    <Pressable
+                        onPress={handleAddNew}
+                        style={({ pressed }) => [
+                            styles.addButton,
+                            { opacity: pressed ? 0.8 : 1 }
+                        ]}
+                    >
+                        <Ionicons name="add-circle" size={24} color="#A855F7" />
+                        <Text style={styles.addButtonText}>Tambah Wallet Baru</Text>
+                    </Pressable>
+
+                    <Text style={styles.hint}>Tap untuk edit • Tekan lama untuk hapus</Text>
+                </View>
+            ) : (
+                /* ADD/EDIT FORM */
+                <View style={styles.content}>
+                    {/* Wallet Preview */}
+                    <LinearGradient
+                        colors={WALLET_COLORS[selectedColorIndex]}
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 1 }}
+                        style={styles.previewCard}
+                    >
+                        <Text style={styles.previewIcon}>{selectedIcon}</Text>
+                        <Text style={styles.previewName}>{name || 'Nama Wallet'}</Text>
+                        <Text style={styles.previewBalance}>Rp {formatBalance(balance) || '0'}</Text>
+                    </LinearGradient>
+
+                    {/* Name Input */}
+                    <Text style={styles.label}>Nama Wallet</Text>
+                    <BlurView intensity={40} tint="dark" style={styles.inputBlur}>
+                        <TextInput
+                            value={name}
+                            onChangeText={setName}
+                            placeholder="contoh: BCA, GoPay, Cash..."
+                            placeholderTextColor="rgba(255,255,255,0.4)"
+                            style={styles.input}
+                        />
+                    </BlurView>
+
+                    {/* Balance Input */}
+                    <Text style={styles.label}>Saldo Awal</Text>
+                    <BlurView intensity={40} tint="dark" style={styles.inputBlur}>
+                        <Text style={styles.currencyPrefix}>Rp</Text>
+                        <TextInput
+                            value={formatBalance(balance)}
+                            onChangeText={(t) => setBalance(t.replace(/\D/g, ''))}
+                            placeholder="0"
+                            placeholderTextColor="rgba(255,255,255,0.4)"
+                            keyboardType="numeric"
+                            style={[styles.input, styles.balanceInput]}
+                        />
+                    </BlurView>
+
+                    {/* Icon Picker */}
+                    <Text style={styles.label}>Icon</Text>
+                    <View style={styles.iconPicker}>
+                        {WALLET_ICONS.map((icon) => (
+                            <Pressable
+                                key={icon}
+                                onPress={() => setSelectedIcon(icon)}
+                                style={[
+                                    styles.iconOption,
+                                    selectedIcon === icon && styles.iconOptionSelected
+                                ]}
+                            >
+                                <Text style={styles.iconOptionText}>{icon}</Text>
+                            </Pressable>
+                        ))}
+                    </View>
+
+                    {/* Color Picker */}
+                    <Text style={styles.label}>Warna</Text>
+                    <View style={styles.colorPicker}>
+                        {WALLET_COLORS.map((clrs, index) => (
+                            <Pressable
+                                key={index}
+                                onPress={() => setSelectedColorIndex(index)}
+                                style={[
+                                    styles.colorOption,
+                                    selectedColorIndex === index && styles.colorOptionSelected
+                                ]}
+                            >
+                                <LinearGradient colors={clrs} style={styles.colorGradient} />
+                            </Pressable>
+                        ))}
+                    </View>
+
+                    {/* Save Button */}
+                    <Pressable
+                        onPress={handleSave}
+                        style={({ pressed }) => [
+                            styles.saveButton,
+                            { opacity: pressed ? 0.9 : 1 }
+                        ]}
+                    >
+                        <LinearGradient colors={['#A855F7', '#7C3AED']} style={styles.saveGradient}>
+                            <Text style={styles.saveText}>
+                                {mode === 'add' ? 'Tambah Wallet' : 'Simpan Perubahan'}
+                            </Text>
+                        </LinearGradient>
+                    </Pressable>
+                </View>
+            )}
+        </BottomSheet>
     );
 }
 
 const styles = StyleSheet.create({
-    overlay: {
-        flex: 1,
-        justifyContent: 'flex-end',
-    },
-    backdrop: {
-        ...StyleSheet.absoluteFillObject,
-        backgroundColor: 'rgba(0,0,0,0.5)',
-    },
-    sheet: {
-        height: SCREEN_HEIGHT * 0.85,
-        borderTopLeftRadius: 24,
-        borderTopRightRadius: 24,
-        paddingTop: 12,
-    },
-    handle: {
-        width: 40,
-        height: 4,
-        backgroundColor: 'rgba(150,150,150,0.3)',
-        borderRadius: 2,
-        alignSelf: 'center',
-        marginBottom: 16,
-    },
-    header: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        paddingHorizontal: 20,
-        marginBottom: 8,
-    },
-    headerTitle: {
-        fontFamily: 'PlusJakartaSans_700Bold',
-        fontSize: 18,
-    },
     content: {
         flex: 1,
-        paddingHorizontal: 20,
     },
     walletItem: {
         marginBottom: 12,
@@ -427,10 +350,12 @@ const styles = StyleSheet.create({
         borderWidth: 2,
         borderColor: 'rgba(168, 85, 247, 0.3)',
         borderStyle: 'dashed',
+        backgroundColor: 'rgba(255,255,255,0.02)',
     },
     addButtonText: {
         fontFamily: 'PlusJakartaSans_600SemiBold',
         fontSize: 15,
+        color: '#FFFFFF',
     },
     hint: {
         fontFamily: 'PlusJakartaSans_400Regular',
@@ -438,6 +363,7 @@ const styles = StyleSheet.create({
         textAlign: 'center',
         marginTop: 16,
         marginBottom: 40,
+        color: 'rgba(255,255,255,0.5)',
     },
     previewCard: {
         padding: 24,
@@ -464,6 +390,7 @@ const styles = StyleSheet.create({
         fontFamily: 'PlusJakartaSans_600SemiBold',
         fontSize: 14,
         marginBottom: 8,
+        color: 'rgba(255,255,255,0.7)',
     },
     inputBlur: {
         borderRadius: 14,
@@ -479,11 +406,13 @@ const styles = StyleSheet.create({
         fontFamily: 'PlusJakartaSans_500Medium',
         fontSize: 16,
         padding: 14,
+        color: '#FFFFFF',
     },
     currencyPrefix: {
         fontFamily: 'PlusJakartaSans_600SemiBold',
         fontSize: 16,
         paddingLeft: 14,
+        color: 'rgba(255,255,255,0.6)',
     },
     balanceInput: {
         paddingLeft: 8,
@@ -500,6 +429,7 @@ const styles = StyleSheet.create({
         borderRadius: 12,
         justifyContent: 'center',
         alignItems: 'center',
+        backgroundColor: 'rgba(255,255,255,0.05)',
     },
     iconOptionSelected: {
         borderWidth: 2,

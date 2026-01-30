@@ -1,64 +1,28 @@
-import { Colors } from '@/constants/Colors';
+import { BottomSheet } from '@/components/ui/bottom-sheet';
 import { useMagicSheet } from '@/context/MagicSheetContext';
-import { useColorScheme } from '@/hooks/use-color-scheme';
 import { parseTransactionInput } from '@/services/gemini';
 import { getCategoryIcon, useTransactionStore } from '@/store/transactionStore';
 import { Ionicons } from '@expo/vector-icons';
-import { BlurView } from 'expo-blur';
 import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
 import { MotiView } from 'moti';
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import {
     Alert,
-    Dimensions,
-    Keyboard,
     Pressable,
     StyleSheet,
     Text,
     TextInput,
     View
 } from 'react-native';
-import { Gesture, GestureDetector } from 'react-native-gesture-handler';
-import Animated, {
-    runOnJS,
-    useAnimatedStyle,
-    useSharedValue,
-    withSpring,
-    withTiming,
-} from 'react-native-reanimated';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-
-const { height: SCREEN_HEIGHT } = Dimensions.get('window');
-const SHEET_HEIGHT = SCREEN_HEIGHT * 0.50; // 50% of screen for better bottom clearance
 
 export function MagicInputSheet() {
     const { isOpen, closeSheet } = useMagicSheet();
     const addTransaction = useTransactionStore((s) => s.addTransaction);
-    const translateY = useSharedValue(SCREEN_HEIGHT); // Start off-screen
-    const { bottom } = useSafeAreaInsets();
-    const colorScheme = useColorScheme() ?? 'light';
-    const colors = Colors[colorScheme];
 
     const [input, setInput] = useState('');
     const [loading, setLoading] = useState(false);
     const [result, setResult] = useState<any>(null);
-
-    useEffect(() => {
-        if (isOpen) {
-            // Slide up to show sheet
-            translateY.value = withSpring(SCREEN_HEIGHT - SHEET_HEIGHT, {
-                damping: 20,
-                stiffness: 200,
-            });
-        } else {
-            // Slide down off screen
-            translateY.value = withTiming(SCREEN_HEIGHT, { duration: 300 }, () => {
-                runOnJS(resetState)();
-            });
-            Keyboard.dismiss();
-        }
-    }, [isOpen]);
 
     const resetState = () => {
         setInput('');
@@ -66,53 +30,45 @@ export function MagicInputSheet() {
         setResult(null);
     };
 
+    const handleClose = () => {
+        resetState();
+        closeSheet();
+    };
+
     const handleProcess = async () => {
         if (!input.trim()) return;
 
-        console.log('[MagicInput] Processing input:', input);
-
         setLoading(true);
         try {
-            console.log('[MagicInput] Calling Gemini API...');
             const data = await parseTransactionInput(input);
-            console.log('[MagicInput] Gemini response:', data);
             setResult(data);
         } catch (e) {
-            console.error('[MagicInput] Gemini Error:', e);
+            console.error('[MagicInput] Error:', e);
             Alert.alert('Error', 'Failed to process transaction');
         } finally {
             setLoading(false);
         }
     };
 
-    const panGesture = Gesture.Pan()
-        .onUpdate((event) => {
-            // Only allow dragging down
-            if (event.translationY > 0) {
-                translateY.value = (SCREEN_HEIGHT - SHEET_HEIGHT) + event.translationY;
-            }
-        })
-        .onEnd((event) => {
-            // If dragged more than 1/3 of sheet height or fast velocity, close
-            if (event.translationY > SHEET_HEIGHT / 3 || event.velocityY > 500) {
-                runOnJS(closeSheet)();
-            } else {
-                // Snap back to open position
-                translateY.value = withSpring(SCREEN_HEIGHT - SHEET_HEIGHT, {
-                    damping: 20,
-                    stiffness: 200,
-                });
-            }
-        });
+    const handleSave = () => {
+        if (!result) return;
 
-    const animatedStyle = useAnimatedStyle(() => ({
-        transform: [{ translateY: translateY.value }],
-    }));
+        const transaction = {
+            id: `temp_${Date.now()}`,
+            title: result.item,
+            amount: result.amount,
+            category: result.category,
+            source_wallet: result.source_wallet,
+            date: new Date().toISOString(),
+            icon: getCategoryIcon(result.category),
+            type: result.type || 'expense' as 'income' | 'expense',
+        };
 
-    // Don't render if not open (optimization)
-    if (!isOpen && translateY.value >= SCREEN_HEIGHT) {
-        return null;
-    }
+        addTransaction(transaction, true);
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        Alert.alert('Saved!', 'Transaction added successfully');
+        handleClose();
+    };
 
     const renderContent = () => {
         if (loading) {
@@ -156,27 +112,7 @@ export function MagicInputSheet() {
                         </View>
                     </View>
 
-                    <Pressable
-                        style={styles.saveButton}
-                        onPress={() => {
-                            // Create transaction object
-                            const transaction = {
-                                id: `temp_${Date.now()}`, // Firebase will replace with real ID
-                                title: result.item,
-                                amount: result.amount,
-                                category: result.category,
-                                source_wallet: result.source_wallet,
-                                date: new Date().toISOString(),
-                                icon: getCategoryIcon(result.category),
-                            };
-
-                            // Save to store (syncs to Firebase)
-                            addTransaction(transaction, true);
-                            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-                            Alert.alert('Saved!', 'Transaction added successfully');
-                            closeSheet();
-                        }}
-                    >
+                    <Pressable style={styles.saveButton} onPress={handleSave}>
                         <LinearGradient
                             colors={['#A855F7', '#6366F1']}
                             start={{ x: 0, y: 0 }}
@@ -186,12 +122,19 @@ export function MagicInputSheet() {
                             <Text style={styles.saveButtonText}>Confirm & Save</Text>
                         </LinearGradient>
                     </Pressable>
+
+                    <Pressable
+                        style={styles.retryButton}
+                        onPress={() => setResult(null)}
+                    >
+                        <Text style={styles.retryText}>Try Again</Text>
+                    </Pressable>
                 </View>
             );
         }
 
         return (
-            <>
+            <View style={styles.inputContent}>
                 <Text style={styles.title}>Quick Add Transaction</Text>
                 <View style={styles.inputContainer}>
                     <TextInput
@@ -221,67 +164,24 @@ export function MagicInputSheet() {
                         <Text style={styles.buttonText}>Magic Process</Text>
                     </LinearGradient>
                 </Pressable>
-            </>
+            </View>
         );
     };
 
     return (
-        <GestureDetector gesture={panGesture}>
-            <Animated.View style={[styles.sheetContainer, animatedStyle]}>
-                {/* Glass background */}
-                <BlurView intensity={80} tint="dark" style={StyleSheet.absoluteFill}>
-                    <View style={styles.glassOverlay} />
-                </BlurView>
-
-                {/* Content */}
-                <View style={[styles.content, { paddingBottom: Math.max(bottom, 20) + 30 }]}>
-                    {/* Drag handle */}
-                    <View style={styles.handleContainer}>
-                        <View style={styles.dragHandle} />
-                    </View>
-                    {renderContent()}
-                </View>
-            </Animated.View>
-        </GestureDetector>
+        <BottomSheet
+            isVisible={isOpen}
+            onClose={handleClose}
+            snapPoints={[0.55]}
+        >
+            {renderContent()}
+        </BottomSheet>
     );
 }
 
 const styles = StyleSheet.create({
-    sheetContainer: {
-        position: 'absolute',
-        width: '100%',
-        height: SHEET_HEIGHT,
-        left: 0,
-        right: 0,
-        zIndex: 9999,
-        borderTopLeftRadius: 32,
-        borderTopRightRadius: 32,
-        overflow: 'hidden',
-        shadowColor: "#A855F7",
-        shadowOffset: { width: 0, height: -8 },
-        shadowOpacity: 0.4,
-        shadowRadius: 20,
-        elevation: 50,
-    },
-    glassOverlay: {
-        ...StyleSheet.absoluteFillObject,
-        backgroundColor: 'rgba(20, 20, 40, 0.92)',
-    },
-    content: {
+    inputContent: {
         flex: 1,
-        padding: 24,
-        paddingTop: 12,
-    },
-    handleContainer: {
-        alignItems: 'center',
-        marginBottom: 24,
-        paddingVertical: 8,
-    },
-    dragHandle: {
-        width: 48,
-        height: 5,
-        backgroundColor: 'rgba(255,255,255,0.5)',
-        borderRadius: 3,
     },
     title: {
         fontSize: 24,
@@ -323,6 +223,7 @@ const styles = StyleSheet.create({
         flex: 1,
         alignItems: 'center',
         justifyContent: 'center',
+        paddingVertical: 60,
     },
     loadingText: {
         marginTop: 16,
@@ -366,5 +267,14 @@ const styles = StyleSheet.create({
         color: 'white',
         fontSize: 18,
         fontFamily: 'PlusJakartaSans_700Bold',
+    },
+    retryButton: {
+        alignItems: 'center',
+        padding: 12,
+    },
+    retryText: {
+        color: 'rgba(255,255,255,0.6)',
+        fontSize: 14,
+        fontFamily: 'PlusJakartaSans_500Medium',
     },
 });

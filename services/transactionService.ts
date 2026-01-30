@@ -10,6 +10,7 @@ export interface Transaction {
     date: string; // ISO string
     icon: string;
     userId: string;
+    type?: 'income' | 'expense'; // Optional for backward compatibility
 }
 
 const COLLECTION_NAME = 'transactions';

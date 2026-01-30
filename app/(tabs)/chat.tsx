@@ -199,32 +199,39 @@ Available Data:
                     ListFooterComponent={isTyping ? <TypingIndicator /> : null}
                 />
 
-                {/* Quick Prompts */}
-                {messages.length <= 2 && (
-                    <MotiView
-                        from={{ opacity: 0, translateY: 20 }}
-                        animate={{ opacity: 1, translateY: 0 }}
-                        style={styles.quickPrompts}
-                    >
-                        {QUICK_PROMPTS.map((prompt, index) => (
-                            <Pressable
-                                key={index}
-                                onPress={() => handleSend(prompt.text)}
-                                style={[styles.quickPromptButton, { backgroundColor: colors.card }]}
-                            >
-                                <Text style={styles.quickPromptIcon}>{prompt.icon}</Text>
-                                <Text style={[styles.quickPromptText, { color: colors.text }]}>{prompt.text}</Text>
-                            </Pressable>
-                        ))}
-                    </MotiView>
-                )}
-
-                {/* Input Bar */}
+                {/* Input Area with Presets */}
                 <BlurView
                     intensity={80}
                     tint={colorScheme}
-                    style={[styles.inputWrapper, { paddingBottom: Math.max(bottom, 20) + 100 }]}
+                    style={[styles.inputWrapper, { paddingBottom: Math.max(bottom, 20) + 80 }]}
                 >
+                    {/* Quick Prompts - horizontal scroll above input */}
+                    {messages.length <= 2 && (
+                        <MotiView
+                            from={{ opacity: 0, translateY: 10 }}
+                            animate={{ opacity: 1, translateY: 0 }}
+                            style={styles.quickPromptsContainer}
+                        >
+                            <FlatList
+                                horizontal
+                                showsHorizontalScrollIndicator={false}
+                                data={QUICK_PROMPTS}
+                                keyExtractor={(_, index) => index.toString()}
+                                contentContainerStyle={styles.quickPromptsList}
+                                renderItem={({ item: prompt }) => (
+                                    <Pressable
+                                        onPress={() => handleSend(prompt.text)}
+                                        style={[styles.quickPromptButton, { backgroundColor: colors.card }]}
+                                    >
+                                        <Text style={styles.quickPromptIcon}>{prompt.icon}</Text>
+                                        <Text style={[styles.quickPromptText, { color: colors.text }]}>{prompt.text}</Text>
+                                    </Pressable>
+                                )}
+                            />
+                        </MotiView>
+                    )}
+
+                    {/* Input Container */}
                     <View style={[styles.inputContainer, { backgroundColor: colors.card }]}>
                         <TextInput
                             style={[styles.input, { color: colors.text }]}
@@ -338,12 +345,13 @@ const styles = StyleSheet.create({
         borderRadius: 4,
         backgroundColor: '#A855F7',
     },
-    quickPrompts: {
-        flexDirection: 'row',
-        flexWrap: 'wrap',
-        gap: 10,
+    quickPromptsContainer: {
+        marginBottom: 12,
+        marginHorizontal: -20,
+    },
+    quickPromptsList: {
         paddingHorizontal: 20,
-        marginBottom: 10,
+        gap: 10,
     },
     quickPromptButton: {
         flexDirection: 'row',

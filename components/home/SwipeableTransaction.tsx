@@ -1,8 +1,9 @@
 import { Transaction, useTransactionStore } from '@/store/transactionStore';
+import { createTwoButtonAlert } from '@/components/ui/alert';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import React, { useCallback } from 'react';
-import { Alert, Dimensions, StyleSheet, Text, View } from 'react-native';
+import { Dimensions, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
     runOnJS,
@@ -33,13 +34,15 @@ export function SwipeableTransaction({ item, onPress }: SwipeableTransactionProp
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     }, []);
 
-    const handleDelete = useCallback(() => {
-        Alert.alert(
-            'Delete Transaction',
-            `Are you sure you want to delete "${item.title}"?`,
-            [
+    const confirmDelete = useCallback(() => {
+        createTwoButtonAlert({
+            title: 'Delete Transaction',
+            message: `Are you sure you want to delete "${item.title}"?`,
+            buttons: [
                 {
-                    text: 'Cancel', style: 'cancel', onPress: () => {
+                    text: 'Cancel',
+                    style: 'cancel',
+                    onPress: () => {
                         translateX.value = withSpring(0);
                     }
                 },
@@ -47,16 +50,20 @@ export function SwipeableTransaction({ item, onPress }: SwipeableTransactionProp
                     text: 'Delete',
                     style: 'destructive',
                     onPress: () => {
-                        // Animate out then delete
                         opacity.value = withTiming(0, { duration: 200 });
                         itemHeight.value = withTiming(0, { duration: 300 }, () => {
                             runOnJS(deleteTransaction)(item.id, true);
                         });
                     },
                 },
-            ]
-        );
+            ],
+        });
     }, [item.id, item.title, deleteTransaction]);
+
+    const handleTrashPress = useCallback(() => {
+        triggerHaptic();
+        confirmDelete();
+    }, [triggerHaptic, confirmDelete]);
 
     const panGesture = Gesture.Pan()
         .activeOffsetX([-10, 10])
@@ -68,10 +75,9 @@ export function SwipeableTransaction({ item, onPress }: SwipeableTransactionProp
         })
         .onEnd((event) => {
             if (event.translationX < DELETE_THRESHOLD) {
-                // Show delete action
+                // Snap to show delete button
                 translateX.value = withSpring(SNAP_POINT);
                 runOnJS(triggerHaptic)();
-                runOnJS(handleDelete)();
             } else {
                 // Snap back
                 translateX.value = withSpring(0);
@@ -108,9 +114,9 @@ export function SwipeableTransaction({ item, onPress }: SwipeableTransactionProp
         <Animated.View style={animatedContainerStyle}>
             {/* Delete action background */}
             <Animated.View style={[styles.deleteAction, animatedDeleteStyle]}>
-                <View style={styles.deleteIconWrapper}>
+                <Pressable onPress={handleTrashPress} style={styles.deleteIconWrapper}>
                     <Ionicons name="trash" size={24} color="#fff" />
-                </View>
+                </Pressable>
             </Animated.View>
 
             {/* Swipeable card */}
@@ -128,7 +134,14 @@ export function SwipeableTransaction({ item, onPress }: SwipeableTransactionProp
                                 </Text>
                             </View>
                         </View>
-                        <Text style={styles.amount}>-Rp {item.amount.toLocaleString()}</Text>
+                        <Text
+                            style={[
+                                styles.amount,
+                                { color: item.type === 'income' ? '#22C55E' : '#EF4444' }
+                            ]}
+                        >
+                            {item.type === 'income' ? '+' : '-'}Rp {item.amount.toLocaleString()}
+                        </Text>
                     </GlassView>
                 </Animated.View>
             </GestureDetector>
@@ -141,7 +154,7 @@ const styles = StyleSheet.create({
         position: 'absolute',
         right: 0,
         top: 0,
-        bottom: 12,
+        bottom: 0,
         width: 80,
         justifyContent: 'center',
         alignItems: 'center',

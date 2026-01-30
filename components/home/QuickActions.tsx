@@ -113,12 +113,12 @@ export function QuickActions() {
             <AddTransactionSheet
                 visible={showIncomeSheet}
                 onClose={() => setShowIncomeSheet(false)}
-                type="income"
+                defaultType="income"
             />
             <AddTransactionSheet
                 visible={showExpenseSheet}
                 onClose={() => setShowExpenseSheet(false)}
-                type="expense"
+                defaultType="expense"
             />
         </>
     );

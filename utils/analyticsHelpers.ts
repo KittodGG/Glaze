@@ -1,6 +1,8 @@
 import { Transaction } from '@/store/transactionStore';
 
-interface CategoryData {
+export type TimeRange = 'week' | 'month' | 'year';
+
+export interface CategoryData {
     name: string;
     amount: number;
     percentage: number;
@@ -8,17 +10,17 @@ interface CategoryData {
     icon: string;
 }
 
-interface WeeklyData {
-    day: string;
+export interface ChartData {
+    label: string;
     amount: number;
-    isToday: boolean;
+    isActive: boolean;
 }
 
-interface SpendingStats {
+export interface SpendingStats {
     totalSpent: number;
     transactionCount: number;
     averageTransaction: number;
-    weekOverWeekChange: number; // percentage
+    periodChange: number; // percentage compared to previous period
 }
 
 // Color palette for categories
@@ -86,6 +88,76 @@ function getLastWeekRange(): { start: Date; end: Date } {
 }
 
 /**
+ * Get the start and end of the current month
+ */
+function getCurrentMonthRange(): { start: Date; end: Date } {
+    const now = new Date();
+    const start = new Date(now.getFullYear(), now.getMonth(), 1);
+    start.setHours(0, 0, 0, 0);
+    
+    const end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+    end.setHours(23, 59, 59, 999);
+    
+    return { start, end };
+}
+
+/**
+ * Get the start and end of last month
+ */
+function getLastMonthRange(): { start: Date; end: Date } {
+    const now = new Date();
+    const start = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    start.setHours(0, 0, 0, 0);
+    
+    const end = new Date(now.getFullYear(), now.getMonth(), 0);
+    end.setHours(23, 59, 59, 999);
+    
+    return { start, end };
+}
+
+/**
+ * Get the start and end of the current year
+ */
+function getCurrentYearRange(): { start: Date; end: Date } {
+    const now = new Date();
+    const start = new Date(now.getFullYear(), 0, 1);
+    start.setHours(0, 0, 0, 0);
+    
+    const end = new Date(now.getFullYear(), 11, 31);
+    end.setHours(23, 59, 59, 999);
+    
+    return { start, end };
+}
+
+/**
+ * Get the start and end of last year
+ */
+function getLastYearRange(): { start: Date; end: Date } {
+    const now = new Date();
+    const start = new Date(now.getFullYear() - 1, 0, 1);
+    start.setHours(0, 0, 0, 0);
+    
+    const end = new Date(now.getFullYear() - 1, 11, 31);
+    end.setHours(23, 59, 59, 999);
+    
+    return { start, end };
+}
+
+/**
+ * Get date range based on time range
+ */
+export function getDateRange(timeRange: TimeRange): { current: { start: Date; end: Date }, previous: { start: Date; end: Date } } {
+    switch (timeRange) {
+        case 'month':
+            return { current: getCurrentMonthRange(), previous: getLastMonthRange() };
+        case 'year':
+            return { current: getCurrentYearRange(), previous: getLastYearRange() };
+        default:
+            return { current: getCurrentWeekRange(), previous: getLastWeekRange() };
+    }
+}
+
+/**
  * Filter transactions within a date range
  */
 function filterTransactionsByDateRange(
@@ -100,15 +172,18 @@ function filterTransactionsByDateRange(
 }
 
 /**
- * Get category breakdown from transactions
+ * Get category breakdown from transactions with time range support
  */
-export function getCategoryBreakdown(transactions: Transaction[]): CategoryData[] {
-    const { start, end } = getCurrentWeekRange();
-    const weeklyTransactions = filterTransactionsByDateRange(transactions, start, end);
+export function getCategoryBreakdown(transactions: Transaction[], timeRange: TimeRange = 'week'): CategoryData[] {
+    const { current } = getDateRange(timeRange);
+    const filteredTransactions = filterTransactionsByDateRange(transactions, current.start, current.end);
+
+    // Only count expenses for category breakdown
+    const expenseTransactions = filteredTransactions.filter(t => t.type !== 'income');
 
     // Group by category
     const categoryTotals: Record<string, number> = {};
-    weeklyTransactions.forEach(t => {
+    expenseTransactions.forEach(t => {
         const category = t.category || 'Other';
         categoryTotals[category] = (categoryTotals[category] || 0) + t.amount;
     });
@@ -145,59 +220,109 @@ export function getCategoryBreakdown(transactions: Transaction[]): CategoryData[
 }
 
 /**
- * Get weekly spending data for chart
+ * Get chart data based on time range
  */
-export function getWeeklySpending(transactions: Transaction[]): WeeklyData[] {
-    const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-    const { start } = getCurrentWeekRange();
-    const today = new Date();
-    const todayDayIndex = today.getDay() === 0 ? 6 : today.getDay() - 1;
+export function getChartData(transactions: Transaction[], timeRange: TimeRange = 'week'): ChartData[] {
+    const { current } = getDateRange(timeRange);
+    const now = new Date();
 
-    // Initialize daily totals
-    const dailyTotals: number[] = [0, 0, 0, 0, 0, 0, 0];
+    if (timeRange === 'week') {
+        const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+        const todayDayIndex = now.getDay() === 0 ? 6 : now.getDay() - 1;
+        const dailyTotals: number[] = [0, 0, 0, 0, 0, 0, 0];
 
-    // Sum transactions by day
-    transactions.forEach(t => {
-        const date = new Date(t.date);
-        const dayDiff = Math.floor((date.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
+        transactions.forEach(t => {
+            const date = new Date(t.date);
+            const dayDiff = Math.floor((date.getTime() - current.start.getTime()) / (1000 * 60 * 60 * 24));
+            if (dayDiff >= 0 && dayDiff < 7 && t.type !== 'income') {
+                dailyTotals[dayDiff] += t.amount;
+            }
+        });
 
-        if (dayDiff >= 0 && dayDiff < 7) {
-            dailyTotals[dayDiff] += t.amount;
-        }
-    });
+        return days.map((label, index) => ({
+            label,
+            amount: dailyTotals[index],
+            isActive: index === todayDayIndex,
+        }));
+    } else if (timeRange === 'month') {
+        const weeks = ['W1', 'W2', 'W3', 'W4', 'W5'];
+        const currentWeekOfMonth = Math.floor((now.getDate() - 1) / 7);
+        const weeklyTotals: number[] = [0, 0, 0, 0, 0];
 
-    return days.map((day, index) => ({
-        day,
-        amount: dailyTotals[index],
-        isToday: index === todayDayIndex,
-    }));
+        transactions.forEach(t => {
+            const date = new Date(t.date);
+            if (date >= current.start && date <= current.end && t.type !== 'income') {
+                const weekIndex = Math.floor((date.getDate() - 1) / 7);
+                if (weekIndex >= 0 && weekIndex < 5) {
+                    weeklyTotals[weekIndex] += t.amount;
+                }
+            }
+        });
+
+        const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+        const numWeeks = Math.ceil(daysInMonth / 7);
+        return weeks.slice(0, numWeeks).map((label, index) => ({
+            label,
+            amount: weeklyTotals[index],
+            isActive: index === currentWeekOfMonth,
+        }));
+    } else {
+        const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+        const currentMonth = now.getMonth();
+        const monthlyTotals: number[] = Array(12).fill(0);
+
+        transactions.forEach(t => {
+            const date = new Date(t.date);
+            if (date >= current.start && date <= current.end && t.type !== 'income') {
+                monthlyTotals[date.getMonth()] += t.amount;
+            }
+        });
+
+        return months.map((label, index) => ({
+            label,
+            amount: monthlyTotals[index],
+            isActive: index === currentMonth,
+        }));
+    }
 }
 
 /**
- * Get spending statistics
+ * Get spending statistics with time range support
  */
-export function getSpendingStats(transactions: Transaction[]): SpendingStats {
-    const { start: thisWeekStart, end: thisWeekEnd } = getCurrentWeekRange();
-    const { start: lastWeekStart, end: lastWeekEnd } = getLastWeekRange();
+export function getSpendingStats(transactions: Transaction[], timeRange: TimeRange = 'week'): SpendingStats {
+    const { current, previous } = getDateRange(timeRange);
 
-    const thisWeekTransactions = filterTransactionsByDateRange(transactions, thisWeekStart, thisWeekEnd);
-    const lastWeekTransactions = filterTransactionsByDateRange(transactions, lastWeekStart, lastWeekEnd);
+    const currentTransactions = filterTransactionsByDateRange(transactions, current.start, current.end);
+    const previousTransactions = filterTransactionsByDateRange(transactions, previous.start, previous.end);
 
-    const thisWeekTotal = thisWeekTransactions.reduce((sum, t) => sum + t.amount, 0);
-    const lastWeekTotal = lastWeekTransactions.reduce((sum, t) => sum + t.amount, 0);
+    // Only count expenses
+    const currentExpenses = currentTransactions.filter(t => t.type !== 'income');
+    const previousExpenses = previousTransactions.filter(t => t.type !== 'income');
 
-    const weekOverWeekChange = lastWeekTotal > 0
-        ? Math.round(((thisWeekTotal - lastWeekTotal) / lastWeekTotal) * 100)
+    const currentTotal = currentExpenses.reduce((sum, t) => sum + t.amount, 0);
+    const previousTotal = previousExpenses.reduce((sum, t) => sum + t.amount, 0);
+
+    const periodChange = previousTotal > 0
+        ? Math.round(((currentTotal - previousTotal) / previousTotal) * 100)
         : 0;
 
     return {
-        totalSpent: thisWeekTotal,
-        transactionCount: thisWeekTransactions.length,
-        averageTransaction: thisWeekTransactions.length > 0
-            ? Math.round(thisWeekTotal / thisWeekTransactions.length)
+        totalSpent: currentTotal,
+        transactionCount: currentExpenses.length,
+        averageTransaction: currentExpenses.length > 0
+            ? Math.round(currentTotal / currentExpenses.length)
             : 0,
-        weekOverWeekChange,
+        periodChange,
     };
+}
+
+/**
+ * Get filtered transactions by time range
+ */
+export function getFilteredTransactions(transactions: Transaction[], timeRange: TimeRange = 'week'): Transaction[] {
+    const { current } = getDateRange(timeRange);
+    return filterTransactionsByDateRange(transactions, current.start, current.end)
+        .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 }
 
 /**
@@ -228,21 +353,21 @@ export function generateInsight(transactions: Transaction[]): { emoji: string; t
         };
     }
 
-    // Week-over-week increase
-    if (stats.weekOverWeekChange > 20) {
+    // Period increase
+    if (stats.periodChange > 20) {
         return {
             emoji: '📈',
             title: 'Spending is up!',
-            message: `You're spending ${stats.weekOverWeekChange}% more than last week. Time to slow down?`,
+            message: `You're spending ${stats.periodChange}% more than last week. Time to slow down?`,
         };
     }
 
-    // Week-over-week decrease
-    if (stats.weekOverWeekChange < -20) {
+    // Period decrease
+    if (stats.periodChange < -20) {
         return {
             emoji: '💪',
             title: 'Great job saving!',
-            message: `You're spending ${Math.abs(stats.weekOverWeekChange)}% less than last week. Keep it up!`,
+            message: `You're spending ${Math.abs(stats.periodChange)}% less than last week. Keep it up!`,
         };
     }
 

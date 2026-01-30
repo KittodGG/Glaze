@@ -1,5 +1,5 @@
 import { BottomSheet } from '@/components/ui/bottom-sheet';
-import { getCategoryIcon, useTransactionStore } from '@/store/transactionStore';
+import { getCategoryIcon, Transaction, useTransactionStore } from '@/store/transactionStore';
 import { useWalletStore } from '@/store/walletStore';
 import { Ionicons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
@@ -23,36 +23,34 @@ const CATEGORIES = [
     { name: 'Entertainment', icon: 'game-controller' },
     { name: 'Bills', icon: 'receipt' },
     { name: 'Health', icon: 'medkit' },
-    { name: 'Salary', icon: 'cash' },
-    { name: 'Gift', icon: 'gift' },
     { name: 'Other', icon: 'pricetag' },
 ];
 
-interface AddTransactionSheetProps {
+interface TransactionSheetProps {
     visible: boolean;
     onClose: () => void;
-    defaultType?: 'income' | 'expense';
+    transaction: Transaction | null;
 }
 
-export function AddTransactionSheet({ visible, onClose, defaultType = 'expense' }: AddTransactionSheetProps) {
-    const addTransaction = useTransactionStore((s) => s.addTransaction);
+export function TransactionSheet({ visible, onClose, transaction }: TransactionSheetProps) {
+    const updateTransaction = useTransactionStore((s) => s.updateTransaction);
     const wallets = useWalletStore((s) => s.wallets);
 
     const [title, setTitle] = useState('');
     const [amount, setAmount] = useState('');
     const [category, setCategory] = useState('Other');
     const [selectedWallet, setSelectedWallet] = useState('');
-    const [transactionType, setTransactionType] = useState<'income' | 'expense'>(defaultType);
+    const [transactionType, setTransactionType] = useState<'income' | 'expense'>('expense');
 
     useEffect(() => {
-        if (visible) {
-            setTitle('');
-            setAmount('');
-            setCategory('Other');
-            setSelectedWallet(wallets.length > 0 ? wallets[0].name : '');
-            setTransactionType(defaultType);
+        if (transaction) {
+            setTitle(transaction.title);
+            setAmount(transaction.amount.toString());
+            setCategory(transaction.category || 'Other');
+            setSelectedWallet(transaction.source_wallet || '');
+            setTransactionType(transaction.type || 'expense');
         }
-    }, [visible, defaultType, wallets]);
+    }, [transaction]);
 
     const formatAmount = (text: string) => {
         const num = text.replace(/\D/g, '');
@@ -61,6 +59,8 @@ export function AddTransactionSheet({ visible, onClose, defaultType = 'expense' 
     };
 
     const handleSave = () => {
+        if (!transaction) return;
+
         if (!title.trim()) {
             Alert.alert('Error', 'Title is required');
             return;
@@ -72,34 +72,24 @@ export function AddTransactionSheet({ visible, onClose, defaultType = 'expense' 
             return;
         }
 
-        if (!selectedWallet) {
-            Alert.alert('Error', 'Please select a wallet');
-            return;
-        }
-
-        const transaction = {
-            id: `temp_${Date.now()}`,
+        updateTransaction(transaction.id, {
             title: title.trim(),
             amount: amountNum,
             category,
             source_wallet: selectedWallet,
-            date: new Date().toISOString(),
             icon: getCategoryIcon(category),
             type: transactionType,
-        };
+        }, true);
 
-        addTransaction(transaction, true);
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         onClose();
     };
-
-    const sheetTitle = transactionType === 'income' ? 'Add Income' : 'Add Expense';
 
     return (
         <BottomSheet
             isVisible={visible}
             onClose={onClose}
-            title={sheetTitle}
+            title="Edit Transaction"
             snapPoints={[0.85]}
         >
             {/* Transaction Type Toggle */}
@@ -151,7 +141,7 @@ export function AddTransactionSheet({ visible, onClose, defaultType = 'expense' 
                 <TextInput
                     value={title}
                     onChangeText={setTitle}
-                    placeholder={transactionType === 'income' ? 'e.g. Salary, Freelance...' : 'e.g. Coffee, Lunch...'}
+                    placeholder="Transaction name..."
                     placeholderTextColor="rgba(255,255,255,0.4)"
                     style={styles.input}
                 />
@@ -224,12 +214,10 @@ export function AddTransactionSheet({ visible, onClose, defaultType = 'expense' 
             {/* Save Button */}
             <Pressable onPress={handleSave} style={styles.saveButton}>
                 <LinearGradient
-                    colors={transactionType === 'income' ? ['#22C55E', '#16A34A'] : ['#A855F7', '#7C3AED']}
+                    colors={['#A855F7', '#7C3AED']}
                     style={styles.saveGradient}
                 >
-                    <Text style={styles.saveText}>
-                        {transactionType === 'income' ? 'Add Income' : 'Add Expense'}
-                    </Text>
+                    <Text style={styles.saveText}>Save Changes</Text>
                 </LinearGradient>
             </Pressable>
         </BottomSheet>
