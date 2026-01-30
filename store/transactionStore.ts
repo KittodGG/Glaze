@@ -31,23 +31,48 @@ interface TransactionState {
     setLoading: (loading: boolean) => void;
 }
 
+// Complete list of categories with icons
+export const TRANSACTION_CATEGORIES = [
+    // Expenses
+    { name: 'Food', icon: 'fast-food', type: 'expense' },
+    { name: 'Drink', icon: 'cafe', type: 'expense' },
+    { name: 'Transport', icon: 'car', type: 'expense' },
+    { name: 'Shopping', icon: 'cart', type: 'expense' },
+    { name: 'Entertainment', icon: 'game-controller', type: 'expense' },
+    { name: 'Bills', icon: 'receipt', type: 'expense' },
+    { name: 'Health', icon: 'medkit', type: 'expense' },
+    { name: 'Education', icon: 'school', type: 'expense' },
+    { name: 'Subscription', icon: 'film', type: 'expense' },
+    { name: 'Groceries', icon: 'basket', type: 'expense' },
+    { name: 'Rent', icon: 'home', type: 'expense' },
+    { name: 'Utilities', icon: 'flash', type: 'expense' },
+    { name: 'Internet', icon: 'wifi', type: 'expense' },
+    { name: 'Phone', icon: 'call', type: 'expense' },
+    { name: 'Insurance', icon: 'shield-checkmark', type: 'expense' },
+    { name: 'Travel', icon: 'airplane', type: 'expense' },
+    { name: 'Fitness', icon: 'fitness', type: 'expense' },
+    { name: 'Beauty', icon: 'sparkles', type: 'expense' },
+    { name: 'Pet', icon: 'paw', type: 'expense' },
+    { name: 'Donation', icon: 'heart', type: 'expense' },
+    // Income
+    { name: 'Salary', icon: 'cash', type: 'income' },
+    { name: 'Freelance', icon: 'laptop', type: 'income' },
+    { name: 'Investment', icon: 'trending-up', type: 'income' },
+    { name: 'Gift', icon: 'gift', type: 'income' },
+    { name: 'Bonus', icon: 'star', type: 'income' },
+    { name: 'Refund', icon: 'return-down-back', type: 'income' },
+    { name: 'Other', icon: 'pricetag', type: 'both' },
+] as const;
+
 // Icon mapping for categories
 export function getCategoryIcon(category: string): string {
-    const icons: Record<string, string> = {
-        'Food': 'fast-food',
-        'Drink': 'cafe',
-        'Transport': 'car',
-        'Shopping': 'cart',
-        'Entertainment': 'game-controller',
-        'Bills': 'receipt',
-        'Health': 'medkit',
-        'Education': 'school',
-        'Subscription': 'film',
-        'Salary': 'cash',
-        'Gift': 'gift',
-        'Other': 'pricetag',
-    };
-    return icons[category] || 'pricetag';
+    const found = TRANSACTION_CATEGORIES.find(c => c.name === category);
+    return found?.icon || 'pricetag';
+}
+
+// Get categories by type
+export function getCategoriesByType(type: 'income' | 'expense'): typeof TRANSACTION_CATEGORIES[number][] {
+    return TRANSACTION_CATEGORIES.filter(c => c.type === type || c.type === 'both');
 }
 
 /**

@@ -1,79 +1,97 @@
 import { Ionicons } from '@expo/vector-icons';
-import { BlurView } from 'expo-blur';
+import { LinearGradient } from 'expo-linear-gradient';
 import { MotiView } from 'moti';
-import { StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 interface EmptyStateProps {
     icon?: keyof typeof Ionicons.glyphMap;
     title?: string;
     message?: string;
+    actionLabel?: string;
+    onAction?: () => void;
 }
 
 export function EmptyState({
     icon = 'wallet-outline',
     title = 'No transactions yet',
-    message = 'Tap + to start tracking your spending',
+    message = 'Start tracking your spending to see insights here',
+    actionLabel,
+    onAction,
 }: EmptyStateProps) {
     return (
         <MotiView
-            from={{ opacity: 0, scale: 0.9 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ type: 'spring', damping: 15 }}
+            from={{ opacity: 0, translateY: 20 }}
+            animate={{ opacity: 1, translateY: 0 }}
+            transition={{ type: 'timing', duration: 400 }}
             style={styles.container}
         >
-            <BlurView intensity={60} tint="dark" style={styles.blurContainer}>
-                <View style={styles.glassOverlay}>
-                    <MotiView
-                        from={{ rotate: '-10deg', scale: 0.8 }}
-                        animate={{ rotate: '0deg', scale: 1 }}
-                        transition={{ type: 'spring', delay: 200 }}
+            {/* Animated Icon */}
+            <MotiView
+                from={{ scale: 0.5, rotate: '-15deg' }}
+                animate={{ scale: 1, rotate: '0deg' }}
+                transition={{ type: 'spring', delay: 100 }}
+                style={styles.iconContainer}
+            >
+                <LinearGradient
+                    colors={['rgba(168, 85, 247, 0.2)', 'rgba(99, 102, 241, 0.15)']}
+                    style={styles.iconGradient}
+                >
+                    <Ionicons name={icon} size={40} color="#A855F7" />
+                </LinearGradient>
+            </MotiView>
+
+            {/* Text Content */}
+            <Text style={styles.title}>{title}</Text>
+            <Text style={styles.message}>{message}</Text>
+
+            {/* Action Button */}
+            {actionLabel && onAction && (
+                <Pressable
+                    onPress={onAction}
+                    style={({ pressed }) => [
+                        styles.actionButton,
+                        { opacity: pressed ? 0.8 : 1 }
+                    ]}
+                >
+                    <LinearGradient
+                        colors={['#A855F7', '#7C3AED']}
+                        style={styles.actionGradient}
                     >
-                        <View style={styles.iconWrapper}>
-                            <Ionicons name={icon} size={48} color="rgba(168, 85, 247, 0.8)" />
-                        </View>
-                    </MotiView>
+                        <Ionicons name="add" size={18} color="#fff" />
+                        <Text style={styles.actionText}>{actionLabel}</Text>
+                    </LinearGradient>
+                </Pressable>
+            )}
 
-                    <Text style={styles.title}>{title}</Text>
-                    <Text style={styles.message}>{message}</Text>
-
-                    {/* Decorative glow */}
-                    <View style={styles.glow} />
-                </View>
-            </BlurView>
+            {/* Decorative Elements */}
+            <View style={styles.decorCircle1} />
+            <View style={styles.decorCircle2} />
         </MotiView>
     );
 }
 
 const styles = StyleSheet.create({
     container: {
-        marginVertical: 24,
-        marginHorizontal: 24,
-    },
-    blurContainer: {
-        borderRadius: 24,
-        overflow: 'hidden',
-        borderWidth: 1,
-        borderColor: 'rgba(255, 255, 255, 0.1)',
-    },
-    glassOverlay: {
-        padding: 32,
         alignItems: 'center',
-        backgroundColor: 'rgba(30, 30, 50, 0.6)',
+        paddingVertical: 40,
+        paddingHorizontal: 24,
+        position: 'relative',
     },
-    iconWrapper: {
+    iconContainer: {
+        marginBottom: 20,
+    },
+    iconGradient: {
         width: 80,
         height: 80,
-        borderRadius: 40,
-        backgroundColor: 'rgba(168, 85, 247, 0.15)',
+        borderRadius: 24,
         justifyContent: 'center',
         alignItems: 'center',
-        marginBottom: 20,
         borderWidth: 1,
         borderColor: 'rgba(168, 85, 247, 0.3)',
     },
     title: {
         fontFamily: 'PlusJakartaSans_700Bold',
-        fontSize: 20,
+        fontSize: 18,
         color: '#FFFFFF',
         marginBottom: 8,
         textAlign: 'center',
@@ -81,19 +99,44 @@ const styles = StyleSheet.create({
     message: {
         fontFamily: 'PlusJakartaSans_400Regular',
         fontSize: 14,
-        color: 'rgba(255, 255, 255, 0.6)',
+        color: 'rgba(255, 255, 255, 0.5)',
         textAlign: 'center',
         lineHeight: 20,
+        maxWidth: 250,
     },
-    glow: {
+    actionButton: {
+        marginTop: 20,
+        borderRadius: 14,
+        overflow: 'hidden',
+    },
+    actionGradient: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
+        paddingHorizontal: 20,
+        paddingVertical: 12,
+    },
+    actionText: {
+        fontFamily: 'PlusJakartaSans_600SemiBold',
+        fontSize: 14,
+        color: '#fff',
+    },
+    decorCircle1: {
         position: 'absolute',
-        top: -50,
-        left: '50%',
-        marginLeft: -75,
-        width: 150,
-        height: 150,
-        backgroundColor: 'rgba(168, 85, 247, 0.15)',
-        borderRadius: 75,
-        opacity: 0.5,
+        top: 20,
+        right: 30,
+        width: 8,
+        height: 8,
+        borderRadius: 4,
+        backgroundColor: 'rgba(168, 85, 247, 0.3)',
+    },
+    decorCircle2: {
+        position: 'absolute',
+        bottom: 30,
+        left: 40,
+        width: 6,
+        height: 6,
+        borderRadius: 3,
+        backgroundColor: 'rgba(99, 102, 241, 0.3)',
     },
 });

@@ -460,9 +460,12 @@ const styles = StyleSheet.create({
         marginBottom: 20,
     },
     statCard: {
+        flex: 1,
         borderRadius: 20,
         alignItems: 'center',
+        justifyContent: 'center',
         paddingVertical: 16,
+        minHeight: 130,
     },
     statIconBox: {
         width: 44,

@@ -1,17 +1,17 @@
 import { useKeyboardHeight } from '@/hooks/useKeyboardHeight';
 import { BlurView } from 'expo-blur';
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import {
     Dimensions,
     Modal,
     ScrollView,
     StyleSheet,
     Text,
+    TouchableOpacity,
     TouchableWithoutFeedback,
     View,
     ViewStyle,
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
     Gesture,
     GestureDetector,
@@ -53,12 +53,15 @@ export function BottomSheet({
     onBack,
 }: BottomSheetProps) {
     const { keyboardHeight, isKeyboardVisible } = useKeyboardHeight();
+    const scrollRef = useRef<ScrollView>(null);
 
     const translateY = useSharedValue(0);
     const context = useSharedValue({ y: 0 });
     const opacity = useSharedValue(0);
     const currentSnapIndex = useSharedValue(0);
     const keyboardHeightSV = useSharedValue(0);
+    const isScrolling = useSharedValue(false);
+    const scrollOffset = useSharedValue(0);
 
     const snapPointsHeights = snapPoints.map((point) => -SCREEN_HEIGHT * point);
     const defaultHeight = snapPointsHeights[0];
@@ -126,13 +129,6 @@ export function BottomSheet({
         return closest;
     };
 
-    const handlePress = () => {
-        const nextIndex = (currentSnapIndex.value + 1) % snapPointsHeights.length;
-        currentSnapIndex.value = nextIndex;
-        const destination = snapPointsHeights[nextIndex] - keyboardHeightSV.value;
-        scrollTo(destination);
-    };
-
     const animateClose = () => {
         'worklet';
         translateY.value = withSpring(0, { damping: 50, stiffness: 400 });
@@ -143,7 +139,8 @@ export function BottomSheet({
         });
     };
 
-    const gesture = Gesture.Pan()
+    // Only handle gesture on the handle area
+    const handleGesture = Gesture.Pan()
         .onStart(() => {
             context.value = { y: translateY.value };
         })
@@ -157,7 +154,7 @@ export function BottomSheet({
             const currentY = translateY.value;
             const velocity = event.velocityY;
 
-            if (velocity > 500 && currentY > -SCREEN_HEIGHT * 0.2) {
+            if (velocity > 500 && currentY > -SCREEN_HEIGHT * 0.3) {
                 animateClose();
                 return;
             }
@@ -203,61 +200,60 @@ export function BottomSheet({
                         <Animated.View style={{ flex: 1 }} />
                     </TouchableWithoutFeedback>
 
-                    <GestureDetector gesture={gesture}>
-                        <Animated.View
-                            style={[
-                                styles.sheetContainer,
-                                rBottomSheetStyle,
-                                style,
-                            ]}
+                    <Animated.View
+                        style={[
+                            styles.sheetContainer,
+                            rBottomSheetStyle,
+                            style,
+                        ]}
+                    >
+                        <BlurView intensity={80} tint="dark" style={StyleSheet.absoluteFill}>
+                            <View style={styles.glassOverlay} />
+                        </BlurView>
+
+                        {/* Handle - Only this area is draggable */}
+                        <GestureDetector gesture={handleGesture}>
+                            <Animated.View style={styles.handleArea}>
+                                <View style={styles.handle} />
+                            </Animated.View>
+                        </GestureDetector>
+
+                        {/* Header with Back Button */}
+                        {(title || showBack) && (
+                            <View style={styles.header}>
+                                {showBack && (
+                                    <TouchableOpacity onPress={onBack} style={styles.backButton}>
+                                        <Text style={styles.backText}>← Back</Text>
+                                    </TouchableOpacity>
+                                )}
+                                {title && (
+                                    <Text style={[styles.title, showBack && { flex: 1, textAlign: 'center', marginRight: 50 }]}>
+                                        {title}
+                                    </Text>
+                                )}
+                            </View>
+                        )}
+
+                        {/* Scrollable Content - Independent from sheet gesture */}
+                        <ScrollView
+                            ref={scrollRef}
+                            style={styles.scrollView}
+                            contentContainerStyle={styles.scrollContent}
+                            keyboardShouldPersistTaps='handled'
+                            showsVerticalScrollIndicator={true}
+                            bounces={true}
+                            nestedScrollEnabled={true}
                         >
-                            <BlurView intensity={80} tint="dark" style={StyleSheet.absoluteFill}>
-                                <View style={styles.glassOverlay} />
-                            </BlurView>
-
-                            {/* Handle */}
-                            <TouchableWithoutFeedback onPress={handlePress}>
-                                <View style={styles.handleContainer}>
-                                    <View style={styles.handle} />
-                                </View>
-                            </TouchableWithoutFeedback>
-
-                            {/* Header with Back Button */}
-                            {(title || showBack) && (
-                                <View style={styles.header}>
-                                    {showBack && (
-                                        <TouchableWithoutFeedback onPress={onBack}>
-                                            <View style={styles.backButton}>
-                                                <Text style={styles.backText}>← Back</Text>
-                                            </View>
-                                        </TouchableWithoutFeedback>
-                                    )}
-                                    {title && (
-                                        <Text style={[styles.title, showBack && { flex: 1, textAlign: 'center', marginRight: 50 }]}>
-                                            {title}
-                                        </Text>
-                                    )}
-                                </View>
-                            )}
-
-                            {/* Content */}
-                            <ScrollView
-                                style={styles.scrollView}
-                                contentContainerStyle={[styles.scrollContent, { paddingBottom: 100 }]}
-                                keyboardShouldPersistTaps='handled'
-                                showsVerticalScrollIndicator={false}
-                            >
-                                {children}
-                            </ScrollView>
-                        </Animated.View>
-                    </GestureDetector>
+                            {children}
+                            <View style={{ height: 150 }} />
+                        </ScrollView>
+                    </Animated.View>
                 </Animated.View>
             </GestureHandlerRootView>
         </Modal>
     );
 }
 
-// Hook for managing bottom sheet state
 export function useBottomSheet() {
     const [isVisible, setIsVisible] = React.useState(false);
 
@@ -300,10 +296,11 @@ const styles = StyleSheet.create({
         ...StyleSheet.absoluteFillObject,
         backgroundColor: 'rgba(20, 20, 40, 0.95)',
     },
-    handleContainer: {
+    handleArea: {
         width: '100%',
-        paddingVertical: 12,
+        paddingVertical: 16,
         alignItems: 'center',
+        backgroundColor: 'transparent',
     },
     handle: {
         width: 48,
@@ -336,6 +333,5 @@ const styles = StyleSheet.create({
     },
     scrollContent: {
         paddingHorizontal: 20,
-        paddingBottom: 40,
     },
 });

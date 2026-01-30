@@ -253,16 +253,18 @@ Available Data:
 
             <KeyboardAvoidingView
                 style={{ flex: 1 }}
-                behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-                keyboardVerticalOffset={0}
+                behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
             >
                 <FlatList
                     ref={flatListRef}
                     data={messages}
                     renderItem={renderMessage}
                     keyExtractor={item => item.id}
-                    contentContainerStyle={styles.messagesContainer}
+                    contentContainerStyle={[styles.messagesContainer, { paddingBottom: 180 }]}
                     onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: true })}
+                    onLayout={() => flatListRef.current?.scrollToEnd({ animated: false })}
+                    keyboardShouldPersistTaps="handled"
                     ListFooterComponent={
                         <>
                             {isTyping && <TypingIndicator />}
@@ -273,9 +275,9 @@ Available Data:
 
                 {/* Input Area */}
                 <BlurView
-                    intensity={80}
+                    intensity={0}
                     tint={colorScheme}
-                    style={[styles.inputWrapper, { paddingBottom: Math.max(bottom, 20) + 70 }]}
+                    style={[styles.inputWrapper, { paddingBottom: Math.max(bottom, 16) + 50 }]}
                 >
                     {/* Always visible compact presets */}
                     {!showPresets && (

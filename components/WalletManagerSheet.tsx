@@ -1,4 +1,5 @@
 import { BottomSheet } from '@/components/ui/bottom-sheet';
+import { useConfirmAlert } from '@/components/ui/CustomAlert';
 import { Wallet } from '@/services/walletService';
 import { useWalletStore } from '@/store/walletStore';
 import { Ionicons } from '@expo/vector-icons';
@@ -39,6 +40,7 @@ export function WalletManagerSheet({ visible, onClose }: WalletManagerSheetProps
     const addWallet = useWalletStore((s) => s.addWallet);
     const updateWallet = useWalletStore((s) => s.updateWallet);
     const deleteWallet = useWalletStore((s) => s.deleteWallet);
+    const { confirmDelete } = useConfirmAlert();
 
     const [mode, setMode] = useState<'list' | 'add' | 'edit'>('list');
     const [editingWallet, setEditingWallet] = useState<Wallet | null>(null);
@@ -82,22 +84,10 @@ export function WalletManagerSheet({ visible, onClose }: WalletManagerSheetProps
     };
 
     const handleDelete = (wallet: Wallet) => {
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-        Alert.alert(
-            'Hapus Wallet',
-            `Yakin mau hapus "${wallet.name}"?`,
-            [
-                { text: 'Batal', style: 'cancel' },
-                {
-                    text: 'Hapus',
-                    style: 'destructive',
-                    onPress: () => {
-                        deleteWallet(wallet.id!);
-                        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-                    }
-                }
-            ]
-        );
+        confirmDelete(wallet.name, () => {
+            deleteWallet(wallet.id!);
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        });
     };
 
     const handleSave = () => {

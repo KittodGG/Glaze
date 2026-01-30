@@ -78,10 +78,10 @@ export function AlertProvider({ children }: { children: React.ReactNode }) {
                     <Pressable style={StyleSheet.absoluteFill} onPress={hideAlert} />
                     
                     <MotiView
-                        from={{ opacity: 0, scale: 0.9 }}
+                        from={{ opacity: 0, scale: 0.8 }}
                         animate={{ opacity: 1, scale: 1 }}
-                        exit={{ opacity: 0, scale: 0.9 }}
-                        transition={{ type: 'spring', damping: 15 }}
+                        exit={{ opacity: 0, scale: 0.8 }}
+                        transition={{ type: 'timing', duration: 200 }}
                         style={styles.alertContainer}
                     >
                         <BlurView intensity={100} tint="dark" style={styles.blur}>

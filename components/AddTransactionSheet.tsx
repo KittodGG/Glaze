@@ -1,32 +1,20 @@
 import { BottomSheet } from '@/components/ui/bottom-sheet';
-import { getCategoryIcon, useTransactionStore } from '@/store/transactionStore';
+import { getCategoriesByType, getCategoryIcon, useTransactionStore } from '@/store/transactionStore';
 import { useWalletStore } from '@/store/walletStore';
 import { Ionicons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
 import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
     Alert,
     Pressable,
+    ScrollView,
     StyleSheet,
     Text,
     TextInput,
     View
 } from 'react-native';
-
-const CATEGORIES = [
-    { name: 'Food', icon: 'fast-food' },
-    { name: 'Drink', icon: 'cafe' },
-    { name: 'Transport', icon: 'car' },
-    { name: 'Shopping', icon: 'cart' },
-    { name: 'Entertainment', icon: 'game-controller' },
-    { name: 'Bills', icon: 'receipt' },
-    { name: 'Health', icon: 'medkit' },
-    { name: 'Salary', icon: 'cash' },
-    { name: 'Gift', icon: 'gift' },
-    { name: 'Other', icon: 'pricetag' },
-];
 
 interface AddTransactionSheetProps {
     visible: boolean;
@@ -43,6 +31,8 @@ export function AddTransactionSheet({ visible, onClose, defaultType = 'expense' 
     const [category, setCategory] = useState('Other');
     const [selectedWallet, setSelectedWallet] = useState('');
     const [transactionType, setTransactionType] = useState<'income' | 'expense'>(defaultType);
+
+    const categories = useMemo(() => getCategoriesByType(transactionType), [transactionType]);
 
     useEffect(() => {
         if (visible) {
@@ -174,7 +164,7 @@ export function AddTransactionSheet({ visible, onClose, defaultType = 'expense' 
             {/* Category Picker */}
             <Text style={styles.label}>Category</Text>
             <View style={styles.categoryGrid}>
-                {CATEGORIES.map((cat) => (
+                {categories.map((cat) => (
                     <Pressable
                         key={cat.name}
                         onPress={() => setCategory(cat.name)}

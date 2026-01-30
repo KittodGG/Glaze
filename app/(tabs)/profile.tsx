@@ -1,67 +1,78 @@
 import { WalletManagerSheet } from '@/components/WalletManagerSheet';
+import { useConfirmAlert } from '@/components/ui/CustomAlert';
 import { GlassCard } from '@/components/ui/GlassCard';
 import { PremiumBackground } from '@/components/ui/PremiumBackground';
-import { Colors } from '@/constants/Colors';
-import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useTransactionStore } from '@/store/transactionStore';
 import { useWalletStore } from '@/store/walletStore';
 import { Ionicons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { BlurView } from 'expo-blur';
 import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
 import { MotiView } from 'moti';
 import { useMemo, useState } from 'react';
-import { Alert, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Linking, Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-const MENU_ITEMS = [
-    { icon: 'person-outline', label: 'Account Settings', description: 'Manage your profile' },
-    { icon: 'notifications-outline', label: 'Notifications', description: 'Alerts & reminders' },
-    { icon: 'shield-checkmark-outline', label: 'Privacy & Security', description: 'Password & 2FA' },
-    { icon: 'card-outline', label: 'Payment Methods', description: 'Manage wallets' },
-    { icon: 'help-circle-outline', label: 'Help Center', description: 'FAQs & support' },
-];
-
 export default function ProfileScreen() {
-    const colorScheme = useColorScheme() ?? 'light';
-    const colors = Colors[colorScheme];
     const { top } = useSafeAreaInsets();
-    const isAndroid = Platform.OS === 'android';
+    const { confirmDelete, confirmAction, showSuccess } = useConfirmAlert();
 
-    // Get real data from stores
     const wallets = useWalletStore((s) => s.wallets);
     const transactions = useTransactionStore((s) => s.transactions);
+    const setTransactions = useTransactionStore((s) => s.setTransactions);
 
-    // Wallet manager sheet state
     const [walletManagerVisible, setWalletManagerVisible] = useState(false);
+    const [notificationsEnabled, setNotificationsEnabled] = useState(true);
+    const [darkMode, setDarkMode] = useState(true);
 
-    // Compute stats from real data
     const totalBalance = useMemo(
         () => wallets.reduce((sum, w) => sum + w.balance, 0),
         [wallets]
     );
-    const transactionCount = transactions.length;
 
-    // Format total balance for display
     const formatBalance = (amount: number) => {
         if (amount >= 1000000) {
             return `Rp ${(amount / 1000000).toFixed(1)}M`;
         } else if (amount >= 1000) {
             return `Rp ${(amount / 1000).toFixed(0)}k`;
         }
-        return `Rp ${amount}`;
+        return `Rp ${amount.toLocaleString('id-ID')}`;
     };
 
-    const handleLogout = () => {
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-        Alert.alert(
-            'Logout',
-            'Yakin mau keluar dari akun?',
-            [
-                { text: 'Batal', style: 'cancel' },
-                { text: 'Logout', style: 'destructive', onPress: () => console.log('Logged out') }
-            ]
+    const handleClearData = () => {
+        confirmAction(
+            'Hapus Semua Data?',
+            'Semua transaksi akan dihapus. Wallet tetap aman. Aksi ini tidak bisa dibatalkan.',
+            async () => {
+                setTransactions([]);
+                await AsyncStorage.removeItem('transaction-storage');
+                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                showSuccess('Berhasil', 'Semua data transaksi telah dihapus');
+            }
         );
+    };
+
+    const handleExportData = () => {
+        const data = {
+            transactions,
+            wallets,
+            exportedAt: new Date().toISOString(),
+        };
+        console.log('Export data:', JSON.stringify(data, null, 2));
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        showSuccess('Exported!', 'Data telah di-export ke console (dev mode)');
+    };
+
+    const handleRateApp = () => {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        // Open app store
+        Linking.openURL('https://play.google.com/store');
+    };
+
+    const handleSupport = () => {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        Linking.openURL('mailto:support@glaze.app?subject=Glaze Support');
     };
 
     return (
@@ -70,159 +81,196 @@ export default function ProfileScreen() {
                 contentContainerStyle={{ paddingTop: top, paddingBottom: 120 }}
                 showsVerticalScrollIndicator={false}
             >
-                {/* Header with gradient background */}
-                <View style={styles.headerGradient}>
-                    <View style={styles.headerRow}>
-                        <Text style={styles.headerTitle}>Profile</Text>
-                    </View>
+                {/* Header */}
+                <View style={styles.headerSection}>
+                    <Text style={styles.headerTitle}>Settings</Text>
 
-                    {/* Avatar with glow */}
+                    {/* Profile Card */}
                     <MotiView
-                        from={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        transition={{ type: 'timing', duration: 400 }}
-                        style={styles.avatarContainer}
+                        from={{ opacity: 0, scale: 0.95 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        transition={{ type: 'timing', duration: 300 }}
                     >
-                        <View style={styles.avatarGlow} />
                         <LinearGradient
-                            colors={['#A855F7', '#7C3AED']}
-                            style={styles.avatar}
+                            colors={['#7C3AED', '#A855F7']}
+                            start={{ x: 0, y: 0 }}
+                            end={{ x: 1, y: 1 }}
+                            style={styles.profileCard}
                         >
-                            <Ionicons name="person" size={50} color="#fff" />
+                            <View style={styles.profileAvatar}>
+                                <Ionicons name="person" size={32} color="#A855F7" />
+                            </View>
+                            <View style={styles.profileInfo}>
+                                <Text style={styles.profileName}>Glaze User</Text>
+                                <Text style={styles.profileBalance}>{formatBalance(totalBalance)}</Text>
+                            </View>
+                            <View style={styles.profileStats}>
+                                <View style={styles.profileStat}>
+                                    <Text style={styles.profileStatValue}>{wallets.length}</Text>
+                                    <Text style={styles.profileStatLabel}>Wallets</Text>
+                                </View>
+                                <View style={styles.profileStatDivider} />
+                                <View style={styles.profileStat}>
+                                    <Text style={styles.profileStatValue}>{transactions.length}</Text>
+                                    <Text style={styles.profileStatLabel}>Trans</Text>
+                                </View>
+                            </View>
                         </LinearGradient>
-                        <Pressable style={styles.editAvatarButton}>
-                            <Ionicons name="camera" size={14} color="#fff" />
-                        </Pressable>
                     </MotiView>
-
-                    <Text style={styles.userName}>User</Text>
-                    <Text style={styles.userEmail}>user@glaze.app</Text>
-
-                    {/* Premium badge */}
-                    <View style={styles.premiumBadge}>
-                        <Ionicons name="diamond" size={14} color="#F59E0B" />
-                        <Text style={styles.premiumText}>Premium Member</Text>
-                    </View>
                 </View>
 
-                {/* Stats Row */}
-                <MotiView
-                    from={{ opacity: 0, translateY: 10 }}
-                    animate={{ opacity: 1, translateY: 0 }}
-                    transition={{ type: 'timing', duration: 400, delay: 100 }}
-                >
-                    <GlassCard style={styles.statsContainer}>
-                        <View style={styles.statsRow}>
-                            {[
-                                { value: formatBalance(totalBalance), label: 'Total Saved', icon: 'wallet' },
-                                { value: transactionCount.toString(), label: 'Transactions', icon: 'receipt' },
-                                { value: '🔥', label: 'Day Streak', icon: 'flame' },
-                            ].map((stat, index) => (
-                                <View key={index} style={styles.statItem}>
-                                    <View style={[styles.statIcon, { backgroundColor: 'rgba(168, 85, 247, 0.2)' }]}>
-                                        <Ionicons name={stat.icon as any} size={20} color="#A855F7" />
-                                    </View>
-                                    <Text style={[styles.statValue, { color: '#fff' }]}>{stat.value}</Text>
-                                    <Text style={[styles.statLabel, { color: 'rgba(255,255,255,0.7)' }]}>{stat.label}</Text>
-                                </View>
-                            ))}
+                {/* Wallet Management */}
+                <View style={styles.section}>
+                    <Text style={styles.sectionTitle}>Wallets</Text>
+                    <GlassCard style={styles.card}>
+                        <Pressable
+                            onPress={() => setWalletManagerVisible(true)}
+                            style={({ pressed }) => [
+                                styles.menuItem,
+                                { opacity: pressed ? 0.7 : 1 }
+                            ]}
+                        >
+                            <View style={[styles.menuIcon, { backgroundColor: 'rgba(34, 197, 94, 0.15)' }]}>
+                                <Ionicons name="wallet" size={22} color="#22C55E" />
+                            </View>
+                            <View style={styles.menuContent}>
+                                <Text style={styles.menuLabel}>Manage Wallets</Text>
+                                <Text style={styles.menuDescription}>{wallets.length} connected wallets</Text>
+                            </View>
+                            <Ionicons name="chevron-forward" size={20} color="rgba(255,255,255,0.5)" />
+                        </Pressable>
+                    </GlassCard>
+                </View>
+
+                {/* Preferences */}
+                <View style={styles.section}>
+                    <Text style={styles.sectionTitle}>Preferences</Text>
+                    <GlassCard style={styles.card}>
+                        <View style={styles.menuItem}>
+                            <View style={[styles.menuIcon, { backgroundColor: 'rgba(168, 85, 247, 0.15)' }]}>
+                                <Ionicons name="notifications" size={22} color="#A855F7" />
+                            </View>
+                            <View style={styles.menuContent}>
+                                <Text style={styles.menuLabel}>Notifications</Text>
+                                <Text style={styles.menuDescription}>Daily reminders</Text>
+                            </View>
+                            <Switch
+                                value={notificationsEnabled}
+                                onValueChange={setNotificationsEnabled}
+                                trackColor={{ false: 'rgba(255,255,255,0.1)', true: 'rgba(168, 85, 247, 0.4)' }}
+                                thumbColor={notificationsEnabled ? '#A855F7' : '#666'}
+                            />
+                        </View>
+
+                        <View style={styles.divider} />
+
+                        <View style={styles.menuItem}>
+                            <View style={[styles.menuIcon, { backgroundColor: 'rgba(99, 102, 241, 0.15)' }]}>
+                                <Ionicons name="moon" size={22} color="#6366F1" />
+                            </View>
+                            <View style={styles.menuContent}>
+                                <Text style={styles.menuLabel}>Dark Mode</Text>
+                                <Text style={styles.menuDescription}>Always on</Text>
+                            </View>
+                            <Switch
+                                value={darkMode}
+                                onValueChange={setDarkMode}
+                                trackColor={{ false: 'rgba(255,255,255,0.1)', true: 'rgba(99, 102, 241, 0.4)' }}
+                                thumbColor={darkMode ? '#6366F1' : '#666'}
+                            />
                         </View>
                     </GlassCard>
-                </MotiView>
+                </View>
 
-                {/* Connected Wallets */}
-                <MotiView
-                    from={{ opacity: 0, translateY: 10 }}
-                    animate={{ opacity: 1, translateY: 0 }}
-                    transition={{ type: 'timing', duration: 400, delay: 150 }}
-                    style={[styles.section, { marginTop: 20 }]}
-                >
-                    <View style={styles.sectionHeader}>
-                        <Text style={[styles.sectionTitle, { color: '#fff' }]}>Connected Wallets</Text>
-                        <Pressable onPress={() => setWalletManagerVisible(true)}>
-                            <Text style={styles.sectionAction}>Manage</Text>
+                {/* Data Management */}
+                <View style={styles.section}>
+                    <Text style={styles.sectionTitle}>Data</Text>
+                    <GlassCard style={styles.card}>
+                        <Pressable
+                            onPress={handleExportData}
+                            style={({ pressed }) => [
+                                styles.menuItem,
+                                { opacity: pressed ? 0.7 : 1 }
+                            ]}
+                        >
+                            <View style={[styles.menuIcon, { backgroundColor: 'rgba(59, 130, 246, 0.15)' }]}>
+                                <Ionicons name="download" size={22} color="#3B82F6" />
+                            </View>
+                            <View style={styles.menuContent}>
+                                <Text style={styles.menuLabel}>Export Data</Text>
+                                <Text style={styles.menuDescription}>Backup your transactions</Text>
+                            </View>
+                            <Ionicons name="chevron-forward" size={20} color="rgba(255,255,255,0.5)" />
                         </Pressable>
-                    </View>
 
-                    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.walletScroll}>
-                        {wallets.map((wallet, index) => (
-                            <Pressable
-                                key={wallet.id}
-                                onPress={() => setWalletManagerVisible(true)}
-                            >
-                                <MotiView
-                                    from={{ opacity: 0 }}
-                                    animate={{ opacity: 1 }}
-                                    transition={{ type: 'timing', duration: 300 }}
-                                >
-                                    <BlurView
-                                        intensity={40}
-                                        tint={colorScheme}
-                                        style={styles.walletCard}
-                                    >
-                                        <Text style={styles.walletIcon}>{wallet.icon || '💳'}</Text>
-                                        <Text style={[styles.walletName, { color: '#fff' }]}>{wallet.name}</Text>
-                                        <Text style={[styles.walletBalance, { color: 'rgba(255,255,255,0.7)' }]}>
-                                            Rp {wallet.balance.toLocaleString('id-ID')}
-                                        </Text>
-                                    </BlurView>
-                                </MotiView>
-                            </Pressable>
-                        ))}
-                    </ScrollView>
-                </MotiView>
+                        <View style={styles.divider} />
 
-                {/* Menu Items */}
-                <MotiView
-                    from={{ opacity: 0, translateY: 10 }}
-                    animate={{ opacity: 1, translateY: 0 }}
-                    transition={{ type: 'timing', duration: 400, delay: 200 }}
-                    style={styles.section}
-                >
-                    <Text style={[styles.sectionTitle, { color: '#fff', marginBottom: 16 }]}>Settings</Text>
-
-                    <GlassCard style={{ marginHorizontal: 0 }}>
-                        {MENU_ITEMS.map((item, index) => (
-                            <Pressable
-                                key={index}
-                                style={({ pressed }) => [
-                                    styles.menuItem,
-                                    { backgroundColor: pressed ? 'rgba(168, 85, 247, 0.2)' : 'transparent' }
-                                ]}
-                            >
-                                <View style={[styles.menuIcon, { backgroundColor: 'rgba(168, 85, 247, 0.2)' }]}>
-                                    <Ionicons name={item.icon as any} size={22} color="#A855F7" />
-                                </View>
-                                <View style={styles.menuContent}>
-                                    <Text style={[styles.menuLabel, { color: '#fff' }]}>{item.label}</Text>
-                                    <Text style={[styles.menuDescription, { color: 'rgba(255,255,255,0.6)' }]}>{item.description}</Text>
-                                </View>
-                                <Ionicons name="chevron-forward" size={20} color="rgba(255,255,255,0.5)" />
-                            </Pressable>
-                        ))}
+                        <Pressable
+                            onPress={handleClearData}
+                            style={({ pressed }) => [
+                                styles.menuItem,
+                                { opacity: pressed ? 0.7 : 1 }
+                            ]}
+                        >
+                            <View style={[styles.menuIcon, { backgroundColor: 'rgba(239, 68, 68, 0.15)' }]}>
+                                <Ionicons name="trash" size={22} color="#EF4444" />
+                            </View>
+                            <View style={styles.menuContent}>
+                                <Text style={[styles.menuLabel, { color: '#EF4444' }]}>Clear All Data</Text>
+                                <Text style={styles.menuDescription}>Delete all transactions</Text>
+                            </View>
+                            <Ionicons name="chevron-forward" size={20} color="rgba(255,255,255,0.5)" />
+                        </Pressable>
                     </GlassCard>
-                </MotiView>
+                </View>
 
-                {/* Logout Button */}
-                <MotiView
-                    from={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    transition={{ delay: 500 }}
-                    style={styles.logoutContainer}
-                >
-                    <Pressable
-                        onPress={handleLogout}
-                        style={({ pressed }) => [
-                            styles.logoutButton,
-                            { opacity: pressed ? 0.7 : 1 }
-                        ]}
-                    >
-                        <Ionicons name="log-out-outline" size={20} color="#EF4444" />
-                        <Text style={styles.logoutText}>Log Out</Text>
-                    </Pressable>
+                {/* About */}
+                <View style={styles.section}>
+                    <Text style={styles.sectionTitle}>About</Text>
+                    <GlassCard style={styles.card}>
+                        <Pressable
+                            onPress={handleRateApp}
+                            style={({ pressed }) => [
+                                styles.menuItem,
+                                { opacity: pressed ? 0.7 : 1 }
+                            ]}
+                        >
+                            <View style={[styles.menuIcon, { backgroundColor: 'rgba(245, 158, 11, 0.15)' }]}>
+                                <Ionicons name="star" size={22} color="#F59E0B" />
+                            </View>
+                            <View style={styles.menuContent}>
+                                <Text style={styles.menuLabel}>Rate App</Text>
+                                <Text style={styles.menuDescription}>Love Glaze? Give us 5 stars!</Text>
+                            </View>
+                            <Ionicons name="chevron-forward" size={20} color="rgba(255,255,255,0.5)" />
+                        </Pressable>
 
-                    <Text style={[styles.version, { color: colors.icon }]}>Glaze v1.0.0</Text>
-                </MotiView>
+                        <View style={styles.divider} />
+
+                        <Pressable
+                            onPress={handleSupport}
+                            style={({ pressed }) => [
+                                styles.menuItem,
+                                { opacity: pressed ? 0.7 : 1 }
+                            ]}
+                        >
+                            <View style={[styles.menuIcon, { backgroundColor: 'rgba(236, 72, 153, 0.15)' }]}>
+                                <Ionicons name="help-circle" size={22} color="#EC4899" />
+                            </View>
+                            <View style={styles.menuContent}>
+                                <Text style={styles.menuLabel}>Help & Support</Text>
+                                <Text style={styles.menuDescription}>Contact us</Text>
+                            </View>
+                            <Ionicons name="chevron-forward" size={20} color="rgba(255,255,255,0.5)" />
+                        </Pressable>
+                    </GlassCard>
+                </View>
+
+                {/* Version */}
+                <View style={styles.footer}>
+                    <Text style={styles.footerText}>Glaze v1.0.0</Text>
+                    <Text style={styles.footerSubtext}>Created by Kitna M. F.</Text>
+                </View>
             </ScrollView>
 
             {/* Wallet Manager Sheet */}
@@ -230,179 +278,98 @@ export default function ProfileScreen() {
                 visible={walletManagerVisible}
                 onClose={() => setWalletManagerVisible(false)}
             />
-        </PremiumBackground >
+        </PremiumBackground>
     );
 }
 
 const styles = StyleSheet.create({
-    headerGradient: {
+    headerSection: {
         paddingHorizontal: 20,
-        paddingBottom: 30,
-        alignItems: 'center',
-    },
-    headerRow: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        width: '100%',
-        marginBottom: 20,
         paddingTop: 10,
+        marginBottom: 24,
     },
     headerTitle: {
         fontFamily: 'PlusJakartaSans_700Bold',
-        fontSize: 28,
+        fontSize: 32,
         color: '#fff',
+        marginBottom: 20,
     },
-    avatarContainer: {
-        position: 'relative',
-        marginBottom: 16,
-    },
-    avatarGlow: {
-        position: 'absolute',
-        width: 120,
-        height: 120,
-        borderRadius: 60,
-        backgroundColor: 'rgba(168, 85, 247, 0.5)',
-        top: -5,
-        left: -5,
-    },
-    avatar: {
-        width: 110,
-        height: 110,
-        borderRadius: 55,
-        borderWidth: 4,
-        borderColor: 'rgba(255,255,255,0.3)',
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    editAvatarButton: {
-        position: 'absolute',
-        bottom: 4,
-        right: 4,
-        width: 32,
-        height: 32,
-        borderRadius: 16,
-        backgroundColor: '#A855F7',
-        justifyContent: 'center',
-        alignItems: 'center',
-        borderWidth: 3,
-        borderColor: '#7C3AED',
-    },
-    userName: {
-        fontFamily: 'PlusJakartaSans_700Bold',
-        fontSize: 26,
-        color: '#fff',
-    },
-    userEmail: {
-        fontFamily: 'PlusJakartaSans_400Regular',
-        fontSize: 14,
-        color: 'rgba(255,255,255,0.7)',
-        marginTop: 4,
-    },
-    premiumBadge: {
+    profileCard: {
+        borderRadius: 24,
+        padding: 20,
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: 'rgba(245, 158, 11, 0.2)',
-        paddingHorizontal: 14,
-        paddingVertical: 6,
-        borderRadius: 20,
-        marginTop: 12,
-        gap: 6,
     },
-    premiumText: {
-        fontFamily: 'PlusJakartaSans_600SemiBold',
-        fontSize: 12,
-        color: '#F59E0B',
-    },
-    statsContainer: {
-        marginHorizontal: 20,
-        marginTop: -20,
-    },
-    statsRow: {
-        flexDirection: 'row',
-        justifyContent: 'space-around',
-    },
-    statItem: {
-        alignItems: 'center',
-    },
-    statIcon: {
-        width: 44,
-        height: 44,
-        borderRadius: 14,
+    profileAvatar: {
+        width: 56,
+        height: 56,
+        borderRadius: 18,
+        backgroundColor: 'rgba(255,255,255,0.95)',
         justifyContent: 'center',
         alignItems: 'center',
-        marginBottom: 8,
     },
-    statValue: {
+    profileInfo: {
+        flex: 1,
+        marginLeft: 14,
+    },
+    profileName: {
         fontFamily: 'PlusJakartaSans_700Bold',
         fontSize: 18,
+        color: '#fff',
     },
-    statLabel: {
-        fontFamily: 'PlusJakartaSans_400Regular',
-        fontSize: 12,
+    profileBalance: {
+        fontFamily: 'PlusJakartaSans_500Medium',
+        fontSize: 14,
+        color: 'rgba(255,255,255,0.8)',
         marginTop: 2,
+    },
+    profileStats: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: 'rgba(255,255,255,0.15)',
+        borderRadius: 14,
+        paddingHorizontal: 14,
+        paddingVertical: 10,
+    },
+    profileStat: {
+        alignItems: 'center',
+        paddingHorizontal: 8,
+    },
+    profileStatValue: {
+        fontFamily: 'PlusJakartaSans_700Bold',
+        fontSize: 16,
+        color: '#fff',
+    },
+    profileStatLabel: {
+        fontFamily: 'PlusJakartaSans_400Regular',
+        fontSize: 11,
+        color: 'rgba(255,255,255,0.7)',
+    },
+    profileStatDivider: {
+        width: 1,
+        height: 24,
+        backgroundColor: 'rgba(255,255,255,0.2)',
     },
     section: {
         paddingHorizontal: 20,
-        marginTop: 24,
-    },
-    sectionHeader: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        marginBottom: 16,
+        marginBottom: 24,
     },
     sectionTitle: {
-        fontFamily: 'PlusJakartaSans_700Bold',
-        fontSize: 18,
-    },
-    sectionAction: {
         fontFamily: 'PlusJakartaSans_600SemiBold',
         fontSize: 14,
-        color: '#A855F7',
+        color: 'rgba(255,255,255,0.5)',
+        marginBottom: 12,
+        marginLeft: 4,
+        textTransform: 'uppercase',
+        letterSpacing: 1,
     },
-    walletScroll: {
-        marginLeft: -20,
-        paddingLeft: 20,
-    },
-    walletCard: {
-        width: 120,
-        padding: 16,
-        borderRadius: 16,
-        marginRight: 12,
-        alignItems: 'center',
-        borderWidth: 1,
-        borderColor: 'rgba(255, 255, 255, 0.1)',
-        overflow: 'hidden',
-    },
-    walletCardDisabled: {
-        opacity: 0.5,
-    },
-    walletIcon: {
-        fontSize: 24,
-        marginBottom: 8,
-    },
-    walletName: {
-        fontFamily: 'PlusJakartaSans_600SemiBold',
-        fontSize: 14,
-    },
-    walletBalance: {
-        fontFamily: 'PlusJakartaSans_400Regular',
-        fontSize: 11,
-        marginTop: 4,
-    },
-    walletConnect: {
-        fontFamily: 'PlusJakartaSans_600SemiBold',
-        fontSize: 11,
-        color: '#A855F7',
-        marginTop: 4,
+    card: {
+        marginHorizontal: 0,
     },
     menuItem: {
         flexDirection: 'row',
         alignItems: 'center',
-        paddingVertical: 14,
-        paddingHorizontal: 4,
-        borderRadius: 12,
+        paddingVertical: 4,
     },
     menuIcon: {
         width: 44,
@@ -418,31 +385,33 @@ const styles = StyleSheet.create({
     menuLabel: {
         fontFamily: 'PlusJakartaSans_600SemiBold',
         fontSize: 15,
+        color: '#fff',
     },
     menuDescription: {
         fontFamily: 'PlusJakartaSans_400Regular',
         fontSize: 12,
+        color: 'rgba(255,255,255,0.5)',
         marginTop: 2,
     },
-    logoutContainer: {
-        alignItems: 'center',
-        paddingVertical: 30,
+    divider: {
+        height: 1,
+        backgroundColor: 'rgba(255,255,255,0.08)',
+        marginVertical: 12,
+        marginLeft: 58,
     },
-    logoutButton: {
-        flexDirection: 'row',
+    footer: {
         alignItems: 'center',
-        gap: 8,
-        paddingVertical: 12,
-        paddingHorizontal: 24,
+        paddingVertical: 24,
     },
-    logoutText: {
+    footerText: {
         fontFamily: 'PlusJakartaSans_600SemiBold',
-        fontSize: 16,
-        color: '#EF4444',
+        fontSize: 14,
+        color: 'rgba(255,255,255,0.4)',
     },
-    version: {
+    footerSubtext: {
         fontFamily: 'PlusJakartaSans_400Regular',
         fontSize: 12,
-        marginTop: 8,
+        color: 'rgba(255,255,255,0.3)',
+        marginTop: 4,
     },
 });

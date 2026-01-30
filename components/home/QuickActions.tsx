@@ -63,7 +63,7 @@ export function QuickActions() {
             bgColor: 'rgba(59, 130, 246, 0.15)',
             action: () => {
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                router.push('/profile'); // Profile page shows transaction history
+                router.push({ pathname: '/analytics', params: { scrollTo: 'transactions' } });
             }
         },
     ];
